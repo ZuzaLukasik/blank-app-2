@@ -7,6 +7,11 @@ import streamlit as st
 st.set_page_config(page_title="Model wzrostu i zysku", page_icon="📈", layout="wide")
 px.defaults.template = "plotly_white"
 
+px.defaults.font = dict(
+    color="#1f2937",
+    family="Arial"
+)
+
 st.markdown("""
 <style>
 	.stApp,
