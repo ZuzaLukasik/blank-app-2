@@ -469,20 +469,31 @@ with tab3:
         "a = 0,60": "Zmiana skłonności do konsumpcji: a = 0,60",
         "a = 0,80": "Zmiana skłonności do konsumpcji: a = 0,80",
     }
-	for chart_index in range(0, len(sensitivity_charts), 2):
-		if chart_index in group_titles:
-			st.subheader(group_titles[chart_index])
-		left, right = st.columns(2)
-		for container, chart_definition in zip(
-			(left, right), sensitivity_charts[chart_index:chart_index + 2]
-		):
-			variant_name, column, title = chart_definition
-			with container:
-				st.plotly_chart(
-					sensitivity_chart(sensitivity_data[variant_name], column, title),
-					use_container_width=True,
-					key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
-				)
+    for chart_index in range(0, len(sensitivity_charts), 2):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            variant, column, title = sensitivity_charts[chart_index]
+            st.plotly_chart(
+                sensitivity_chart(
+                    sensitivity_data[variant],
+                    column,
+                    title
+                ),
+                use_container_width=True
+            )
+
+        if chart_index + 1 < len(sensitivity_charts):
+            with col2:
+                variant, column, title = sensitivity_charts[chart_index + 1]
+                st.plotly_chart(
+                    sensitivity_chart(
+                        sensitivity_data[variant],
+                        column,
+                        title
+                    ),
+                    use_container_width=True
+                )
 
 with tab4:
 	st.markdown("""
