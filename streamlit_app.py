@@ -860,17 +860,6 @@ with tab5:
     )
 
     st.latex(
-        r"KLR_n^{\mathrm{wzór}} = "
-        r"\frac{\alpha_n rw_n}"
-        r"{\max\left[\left(\frac{1}{alk_n} + R\right)"
-        r"\beta_n,\ 10^{-12}\right]}"
-    )
-
-    st.latex(
-        r"\Delta KLR_n = KLR_n - KLR_n^{\mathrm{wzór}}"
-    )
-
-    st.latex(
         r"\alpha_n \text{ jest wyznaczane numerycznie z } "
         r"\alpha_n = KOR_n\left(\frac{1}{alk_n} + R\right),"
         r"\quad 0.02 \leq \alpha_n \leq 0.98"
