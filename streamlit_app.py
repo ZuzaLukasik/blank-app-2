@@ -424,39 +424,39 @@ with tab2:
 	st.plotly_chart(scenario_chart("Wzrost gospodarczy", "Wzrost gospodarczy z równania"), use_container_width=True, key="output_growth_chart")
 
 with tab3:
-	st.subheader("Wpływ wybranych parametrów na dynamikę modelu")
-	st.caption("Każdy wariant zmienia wyłącznie parametr wskazany w tytule; pozostałe parametry pozostają takie jak w scenariuszu A.")
+    st.subheader("Wpływ wybranych parametrów na dynamikę modelu")
+    st.caption("Każdy wariant zmienia wyłącznie parametr wskazany w tytule; pozostałe parametry pozostają takie jak w scenariuszu A.")
 
-	sensitivity_charts = [
-		("K0 = 50", "Kapitał K", "Dynamika zasobu kapitału przy K0 = 50"),
-		("K0 = 200", "Kapitał K", "Dynamika zasobu kapitału przy K0 = 200"),
-		("K0 = 50", "Inwestycje I", "Dynamika inwestycji przy K0 = 50"),
-		("K0 = 200", "Inwestycje I", "Dynamika inwestycji przy K0 = 200"),
-		("K0 = 50", "KLR", "Techniczne uzbrojenie pracy KLR przy K0 = 50"),
-		("K0 = 200", "KLR", "Techniczne uzbrojenie pracy KLR przy K0 = 200"),
-		("K0 = 50", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy K0 = 50"),
-		("K0 = 200", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy K0 = 200"),
-		("K0 = 50", "Produkcja q", "Dynamika produkcji przy K0 = 50"),
-		("K0 = 200", "Produkcja q", "Dynamika produkcji przy K0 = 200"),
-		("K0 = 50", "Wzrost gospodarczy", "Wzrost gospodarczy przy K0 = 50"),
-		("K0 = 200", "Wzrost gospodarczy", "Wzrost gospodarczy przy K0 = 200"),
-		("alk0 = 5", "Kapitał K", "Dynamika zasobu kapitału przy alk0 = 5"),
-		("alk0 = 20", "Kapitał K", "Dynamika zasobu kapitału przy alk0 = 20"),
-		("alk0 = 5", "KLR", "Techniczne uzbrojenie pracy KLR przy alk0 = 5"),
-		("alk0 = 20", "KLR", "Techniczne uzbrojenie pracy KLR przy alk0 = 20"),
-		("alk0 = 5", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 5"),
-		("alk0 = 20", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 20"),
-		("alk0 = 5", "Wzrost gospodarczy", "Wzrost gospodarczy przy alk0 = 5"),
-		("alk0 = 20", "Wzrost gospodarczy", "Wzrost gospodarczy przy alk0 = 20"),
-		("a = 0,60", "Inwestycje I", "Inwestycje faktyczne dla a = 0,60"),
-		("a = 0,80", "Inwestycje I", "Inwestycje faktyczne dla a = 0,80"),
-		("a = 0,60", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,60"),
-		("a = 0,80", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,80"),
-		("a = 0,60", "Kapitał K", "Kapitał K dla a = 0,60"),
-		("a = 0,80", "Kapitał K", "Kapitał K dla a = 0,80"),
-		("a = 0,60", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,60"),
-		("a = 0,80", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,80"),
-	]
+    sensitivity_charts = [
+        ("K0 = 50", "Kapitał K", "Dynamika zasobu kapitału dla K0 = 50"),
+        ("K0 = 200", "Kapitał K", "Dynamika zasobu kapitału dla K0 = 200"),
+        ("K0 = 50", "Inwestycje I", "Dynamika inwestycji dla K0 = 50"),
+        ("K0 = 200", "Inwestycje I", "Dynamika inwestycji dla K0 = 200"),
+        ("K0 = 50", "KLR", "Techniczne uzbrojenie pracy KLR dla K0 = 50"),
+        ("K0 = 200", "KLR", "Techniczne uzbrojenie pracy KLR dla K0 = 200"),
+        ("K0 = 50", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla K0 = 50"),
+        ("K0 = 200", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla K0 = 200"),
+        ("K0 = 50", "Produkcja q", "Dynamika produkcji dla K0 = 50"),
+        ("K0 = 200", "Produkcja q", "Dynamika produkcji dla K0 = 200"),
+        ("K0 = 50", "Wzrost gospodarczy", "Wzrost gospodarczy dla K0 = 50"),
+        ("K0 = 200", "Wzrost gospodarczy", "Wzrost gospodarczy dla K0 = 200"),
+        ("alk0 = 5", "Kapitał K", "Dynamika zasobu kapitału dla alk0 = 5"),
+        ("alk0 = 20", "Kapitał K", "Dynamika zasobu kapitału dla alk0 = 20"),
+        ("alk0 = 5", "KLR", "Techniczne uzbrojenie pracy KLR dla alk0 = 5"),
+        ("alk0 = 20", "KLR", "Techniczne uzbrojenie pracy KLR dla alk0 = 20"),
+        ("alk0 = 5", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla alk0 = 5"),
+        ("alk0 = 20", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla alk0 = 20"),
+        ("alk0 = 5", "Wzrost gospodarczy", "Wzrost gospodarczy dla alk0 = 5"),
+        ("alk0 = 20", "Wzrost gospodarczy", "Wzrost gospodarczy dla alk0 = 20"),
+        ("a = 0,60", "Inwestycje I", "Inwestycje faktyczne dla a = 0,60"),
+        ("a = 0,80", "Inwestycje I", "Inwestycje faktyczne dla a = 0,80"),
+        ("a = 0,60", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,60"),
+        ("a = 0,80", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,80"),
+        ("a = 0,60", "Kapitał K", "Kapitał K dla a = 0,60"),
+        ("a = 0,80", "Kapitał K", "Kapitał K dla a = 0,80"),
+        ("a = 0,60", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,60"),
+        ("a = 0,80", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,80"),
+    ]
 	group_titles = {
 		0: "Wyniki dla K₀ = 50 i K₀ = 200",
 		12: "Wyniki dla alk₀ = 5 i alk₀ = 20",
