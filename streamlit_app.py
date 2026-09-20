@@ -323,7 +323,7 @@ def scenario_chart(column, title=None):
     fig.update_layout(
     title=dict(
         text=get_chart_title(column),
-        y=0.9,
+        y=0.85,
         yanchor="top",
         font=dict(color="#1f2937")
     ),
