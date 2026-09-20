@@ -275,6 +275,34 @@ def get_axis_label(column):
     return units.get(column, column)
 
 
+def get_chart_title(column):
+    titles = {
+        "Kapitał K": "Dynamika zasobu kapitału",
+        "Praca L": "Dynamika zasobu pracy",
+        "Populacja": "Dynamika populacji",
+        "Produkcja q": "Dynamika produkcji",
+        "Popyt planowany Yp": "Dynamika popytu planowanego",
+        "Popyt Y": "Dynamika popytu",
+        "alpha": "Dynamika udziału kapitału w produkcji",
+        "beta": "Dynamika udziału pracy w produkcji",
+        "alk": "Dynamika średniego okresu użytkowania kapitału",
+        "KOR": "Dynamika kapitałochłonności",
+        "KLR": "Dynamika technicznego uzbrojenia pracy",
+        "Płaca rw": "Dynamika płacy realnej",
+        "Konsumpcja C": "Dynamika konsumpcji",
+        "Inwestycje I": "Dynamika inwestycji faktycznych",
+        "Inwestycje planowane Ip": "Dynamika inwestycji planowanych",
+        "Wydatki G": "Dynamika wydatków rządowych",
+        "Eksport X": "Dynamika eksportu",
+        "Import M": "Dynamika importu",
+        "Zysk pi": "Dynamika zysku",
+        "Luka popytowa": "Dynamika luki popytowej",
+        "Wzrost gospodarczy": "Wzrost gospodarczy",
+    }
+
+    return titles.get(column, column)
+
+
 def scenario_chart(column, title=None):
     frames = []
 
@@ -290,7 +318,7 @@ def scenario_chart(column, title=None):
         x="Okres",
         y=column,
         color="Scenariusz",
-        title=title or column
+        title=title or get_chart_title(column)
     )
 
     fig.update_layout(
@@ -356,151 +384,414 @@ def sensitivity_chart(variant_data, column, title):
 
 
 sensitivity_bases = {
-	"Scenariusz A": values,
-	"Scenariusz B": values_b if values_b is not None else {
-		**values, "E": 0.70, "zeta": 1.2, "gamma0": 0.25, "gamma_E": 0.25,
-	},
-	"Scenariusz C": values_c if values_c is not None else {
-		**values, "E": 0.85, "zeta": 1.2, "gamma0": 0.25, "gamma_E": 0.25,
-	},
+    "Scenariusz A": values,
+    "Scenariusz B": values_b if values_b is not None else {
+        **values,
+        "E": 0.70,
+        "zeta": 1.2,
+        "gamma0": 0.25,
+        "gamma_E": 0.25,
+    },
+    "Scenariusz C": values_c if values_c is not None else {
+        **values,
+        "E": 0.85,
+        "zeta": 1.2,
+        "gamma0": 0.25,
+        "gamma_E": 0.25,
+    },
 }
+
+
 sensitivity_data = {}
+
 for parameter, variants in {
-		"K0": [("K0 = 50", 50.0), ("K0 = 200", 200.0)],
-		"alk0": [("alk0 = 5", 5.0), ("alk0 = 20", 20.0)],
-		"a": [("a = 0,60", 0.60), ("a = 0,80", 0.80)],
-	}.items():
-	for variant_name, variant_value in variants:
-			sensitivity_data[variant_name] = {}
-			for scenario_name, scenario_values in sensitivity_bases.items():
-				variant_values = dict(scenario_values)
-				variant_values[parameter] = variant_value
-				sensitivity_data[variant_name][scenario_name] = simulate(base_params(variant_values))
+    "K0": [
+        ("K0 = 50", 50.0),
+        ("K0 = 200", 200.0)
+    ],
+    "alk0": [
+        ("alk0 = 5", 5.0),
+        ("alk0 = 20", 20.0)
+    ],
+    "a": [
+        ("a = 0,60", 0.60),
+        ("a = 0,80", 0.80)
+    ],
+}.items():
+
+    for variant_name, variant_value in variants:
+        sensitivity_data[variant_name] = {}
+
+        for scenario_name, scenario_values in sensitivity_bases.items():
+            variant_values = dict(scenario_values)
+            variant_values[parameter] = variant_value
+
+            sensitivity_data[variant_name][scenario_name] = simulate(
+                base_params(variant_values)
+            )
 
 
 metric_definitions = [
-	("Produkcja końcowa", lambda frame: f"{frame['Produkcja q'].iloc[-1]:,.2f}"),
-	("Kapitał końcowy", lambda frame: f"{frame['Kapitał K'].iloc[-1]:,.2f}"),
-	("α końcowe", lambda frame: f"{frame['alpha'].iloc[-1]:.3f}"),
-	("Suma zysku", lambda frame: f"{frame['Zysk pi'].sum():,.2f}"),
+    (
+        "Produkcja końcowa",
+        lambda frame: f"{frame['Produkcja q'].iloc[-1]:,.2f}"
+    ),
+    (
+        "Kapitał końcowy",
+        lambda frame: f"{frame['Kapitał K'].iloc[-1]:,.2f}"
+    ),
+    (
+        "α końcowe",
+        lambda frame: f"{frame['alpha'].iloc[-1]:.3f}"
+    ),
+    (
+        "Suma zysku",
+        lambda frame: f"{frame['Zysk pi'].sum():,.2f}"
+    ),
 ]
+
+
 metric_cols = st.columns(len(metric_definitions))
-for metric_column, (label, formatter) in zip(metric_cols, metric_definitions):
-	with metric_column:
-		st.markdown(f"**{label}**")
-		for scenario_name, frame in scenario_data.items():
-			st.write(f"{scenario_name}: {formatter(frame)}")
+
+for metric_column, (label, formatter) in zip(
+    metric_cols,
+    metric_definitions
+):
+    with metric_column:
+        st.markdown(f"**{label}**")
+
+        for scenario_name, frame in scenario_data.items():
+            st.write(
+                f"{scenario_name}: {formatter(frame)}"
+            )
+
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-	"Przebieg modelu", "Równowaga popytu", "Analiza wrażliwości", "Założenia", "Wzory",
+    "Przebieg modelu",
+    "Równowaga popytu",
+    "Analiza wrażliwości",
+    "Założenia",
+    "Wzory",
 ])
+
+
 with tab1:
-	st.subheader("Osobne wykresy wszystkich zmiennych")
-	plot_columns = [
-		column for column in data.columns
-		if column not in {"Okres", "Różnica KLR", "Bezrobocie u"}
-	]
-	for index in range(0, len(plot_columns), 2):
-		left, right = st.columns(2)
-		with left:
-			column = plot_columns[index]
-			st.plotly_chart(scenario_chart(column), use_container_width=True, key=f"all_variables_left_{index}_{column}")
-		if index + 1 < len(plot_columns):
-			with right:
-				column = plot_columns[index + 1]
-				st.plotly_chart(scenario_chart(column), use_container_width=True, key=f"all_variables_right_{index}_{column}")
-	st.dataframe(data.round(4), use_container_width=True, hide_index=True)
+    st.subheader("Osobne wykresy wszystkich zmiennych")
+
+    plot_columns = [
+        column
+        for column in data.columns
+        if column not in {
+            "Okres",
+            "Różnica KLR",
+            "Bezrobocie u"
+        }
+    ]
+
+    for index in range(0, len(plot_columns), 2):
+        left, right = st.columns(2)
+
+        with left:
+            column = plot_columns[index]
+
+            st.plotly_chart(
+                scenario_chart(column),
+                use_container_width=True,
+                key=f"all_variables_left_{index}_{column}"
+            )
+
+        if index + 1 < len(plot_columns):
+            with right:
+                column = plot_columns[index + 1]
+
+                st.plotly_chart(
+                    scenario_chart(column),
+                    use_container_width=True,
+                    key=f"all_variables_right_{index}_{column}"
+                )
+
+    st.dataframe(
+        data.round(4),
+        use_container_width=True,
+        hide_index=True
+    )
+
 
 with tab2:
-	accounting_gap = (data["Produkcja q"] * values["Pq"] - data["Popyt Y"]).abs().max()
-	if accounting_gap < 1e-10:
-		st.success("Równowaga rynkowa spełniona: produkcja = popyt w każdym okresie.")
-	else:
-		st.warning(f"Równowaga rynkowa niespełniona. Luka: {accounting_gap:.2e}")
-	st.write("Popyt planowany wykorzystuje behawioralną inwestycję Iᵖ = b · ΔC. Inwestycja faktyczna jest korygowana o różnicę między produkcją a popytem planowanym, aby zapewnić równowagę rynkową.")
-	st.plotly_chart(scenario_chart("Inwestycje I", "Inwestycje I"), use_container_width=True, key="investment_chart")
-	st.plotly_chart(scenario_chart("Wzrost gospodarczy", "Wzrost gospodarczy z równania"), use_container_width=True, key="output_growth_chart")
+    accounting_gap = (
+        data["Produkcja q"] * values["Pq"] - data["Popyt Y"]
+    ).abs().max()
+
+    if accounting_gap < 1e-10:
+        st.success(
+            "Równowaga rynkowa spełniona: produkcja = popyt w każdym okresie."
+        )
+    else:
+        st.warning(
+            f"Równowaga rynkowa niespełniona. Luka: {accounting_gap:.2e}"
+        )
+
+    st.write(
+        "Popyt planowany wykorzystuje behawioralną inwestycję "
+        "Iᵖ = b · ΔC. Inwestycja faktyczna jest korygowana o różnicę "
+        "między produkcją a popytem planowanym, aby zapewnić równowagę rynkową."
+    )
+
+    st.plotly_chart(
+        scenario_chart(
+            "Inwestycje I",
+            "Dynamika inwestycji faktycznych"
+        ),
+        use_container_width=True,
+        key="investment_chart"
+    )
+
+    st.plotly_chart(
+        scenario_chart(
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy"
+        ),
+        use_container_width=True,
+        key="output_growth_chart"
+    )
+
 
 with tab3:
-    st.subheader("Wpływ wybranych parametrów na dynamikę modelu")
+    st.subheader(
+        "Wpływ wybranych parametrów na dynamikę modelu"
+    )
+
     st.caption(
         "Każdy wariant zmienia wyłącznie parametr wskazany w tytule; "
         "pozostałe parametry pozostają takie jak w scenariuszu A."
     )
 
     sensitivity_charts = [
-        ("K0 = 50", "Kapitał K", "Dynamika zasobu kapitału dla K0 = 50"),
-        ("K0 = 200", "Kapitał K", "Dynamika zasobu kapitału dla K0 = 200"),
-        ("K0 = 50", "Inwestycje I", "Dynamika inwestycji dla K0 = 50"),
-        ("K0 = 200", "Inwestycje I", "Dynamika inwestycji dla K0 = 200"),
-        ("K0 = 50", "KLR", "Techniczne uzbrojenie pracy KLR dla K0 = 50"),
-        ("K0 = 200", "KLR", "Techniczne uzbrojenie pracy KLR dla K0 = 200"),
-        ("K0 = 50", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla K0 = 50"),
-        ("K0 = 200", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla K0 = 200"),
-        ("K0 = 50", "Produkcja q", "Dynamika produkcji dla K0 = 50"),
-        ("K0 = 200", "Produkcja q", "Dynamika produkcji dla K0 = 200"),
-        ("K0 = 50", "Wzrost gospodarczy", "Wzrost gospodarczy dla K0 = 50"),
-        ("K0 = 200", "Wzrost gospodarczy", "Wzrost gospodarczy dla K0 = 200"),
-        ("alk0 = 5", "Kapitał K", "Dynamika zasobu kapitału dla alk0 = 5"),
-        ("alk0 = 20", "Kapitał K", "Dynamika zasobu kapitału dla alk0 = 20"),
-        ("alk0 = 5", "KLR", "Techniczne uzbrojenie pracy KLR dla alk0 = 5"),
-        ("alk0 = 20", "KLR", "Techniczne uzbrojenie pracy KLR dla alk0 = 20"),
-        ("alk0 = 5", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla alk0 = 5"),
-        ("alk0 = 20", "alk", "Dynamika średniego okresu użytkowania kapitału alk dla alk0 = 20"),
-        ("alk0 = 5", "Wzrost gospodarczy", "Wzrost gospodarczy dla alk0 = 5"),
-        ("alk0 = 20", "Wzrost gospodarczy", "Wzrost gospodarczy dla alk0 = 20"),
-        ("a = 0,60", "Inwestycje I", "Inwestycje faktyczne dla a = 0,60"),
-        ("a = 0,80", "Inwestycje I", "Inwestycje faktyczne dla a = 0,80"),
-        ("a = 0,60", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,60"),
-        ("a = 0,80", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,80"),
-        ("a = 0,60", "Kapitał K", "Kapitał K dla a = 0,60"),
-        ("a = 0,80", "Kapitał K", "Kapitał K dla a = 0,80"),
-        ("a = 0,60", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,60"),
-        ("a = 0,80", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,80"),
+        (
+            "K0 = 50",
+            "Kapitał K",
+            "Dynamika zasobu kapitału dla K₀ = 50"
+        ),
+        (
+            "K0 = 200",
+            "Kapitał K",
+            "Dynamika zasobu kapitału dla K₀ = 200"
+        ),
+
+        (
+            "K0 = 50",
+            "Inwestycje I",
+            "Dynamika inwestycji faktycznych dla K₀ = 50"
+        ),
+        (
+            "K0 = 200",
+            "Inwestycje I",
+            "Dynamika inwestycji faktycznych dla K₀ = 200"
+        ),
+
+        (
+            "K0 = 50",
+            "KLR",
+            "Dynamika technicznego uzbrojenia pracy dla K₀ = 50"
+        ),
+        (
+            "K0 = 200",
+            "KLR",
+            "Dynamika technicznego uzbrojenia pracy dla K₀ = 200"
+        ),
+
+        (
+            "K0 = 50",
+            "alk",
+            "Dynamika średniego okresu użytkowania kapitału dla K₀ = 50"
+        ),
+        (
+            "K0 = 200",
+            "alk",
+            "Dynamika średniego okresu użytkowania kapitału dla K₀ = 200"
+        ),
+
+        (
+            "K0 = 50",
+            "Produkcja q",
+            "Dynamika produkcji dla K₀ = 50"
+        ),
+        (
+            "K0 = 200",
+            "Produkcja q",
+            "Dynamika produkcji dla K₀ = 200"
+        ),
+
+        (
+            "K0 = 50",
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy dla K₀ = 50"
+        ),
+        (
+            "K0 = 200",
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy dla K₀ = 200"
+        ),
+
+        (
+            "alk0 = 5",
+            "Kapitał K",
+            "Dynamika zasobu kapitału dla alk₀ = 5"
+        ),
+        (
+            "alk0 = 20",
+            "Kapitał K",
+            "Dynamika zasobu kapitału dla alk₀ = 20"
+        ),
+
+        (
+            "alk0 = 5",
+            "KLR",
+            "Dynamika technicznego uzbrojenia pracy dla alk₀ = 5"
+        ),
+        (
+            "alk0 = 20",
+            "KLR",
+            "Dynamika technicznego uzbrojenia pracy dla alk₀ = 20"
+        ),
+
+        (
+            "alk0 = 5",
+            "alk",
+            "Dynamika średniego okresu użytkowania kapitału dla alk₀ = 5"
+        ),
+        (
+            "alk0 = 20",
+            "alk",
+            "Dynamika średniego okresu użytkowania kapitału dla alk₀ = 20"
+        ),
+
+        (
+            "alk0 = 5",
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy dla alk₀ = 5"
+        ),
+        (
+            "alk0 = 20",
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy dla alk₀ = 20"
+        ),
+
+        (
+            "a = 0,60",
+            "Inwestycje I",
+            "Dynamika inwestycji faktycznych dla a = 0,60"
+        ),
+        (
+            "a = 0,80",
+            "Inwestycje I",
+            "Dynamika inwestycji faktycznych dla a = 0,80"
+        ),
+
+        (
+            "a = 0,60",
+            "Inwestycje planowane Ip",
+            "Dynamika inwestycji planowanych dla a = 0,60"
+        ),
+        (
+            "a = 0,80",
+            "Inwestycje planowane Ip",
+            "Dynamika inwestycji planowanych dla a = 0,80"
+        ),
+
+        (
+            "a = 0,60",
+            "Kapitał K",
+            "Dynamika zasobu kapitału dla a = 0,60"
+        ),
+        (
+            "a = 0,80",
+            "Kapitał K",
+            "Dynamika zasobu kapitału dla a = 0,80"
+        ),
+
+        (
+            "a = 0,60",
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy dla a = 0,60"
+        ),
+        (
+            "a = 0,80",
+            "Wzrost gospodarczy",
+            "Wzrost gospodarczy dla a = 0,80"
+        ),
     ]
 
     group_titles = {
-        "K0 = 50": "Zmiana początkowego zasobu kapitału: K0 = 50",
-        "K0 = 200": "Zmiana początkowego zasobu kapitału: K0 = 200",
-        "alk0 = 5": "Zmiana początkowego średniego okresu użytkowania kapitału: alk0 = 5",
-        "alk0 = 20": "Zmiana początkowego średniego okresu użytkowania kapitału: alk0 = 20",
+        "K0 = 50": "Zmiana początkowego zasobu kapitału: K₀ = 50",
+        "K0 = 200": "Zmiana początkowego zasobu kapitału: K₀ = 200",
+        "alk0 = 5": (
+            "Zmiana początkowego średniego okresu "
+            "użytkowania kapitału: alk₀ = 5"
+        ),
+        "alk0 = 20": (
+            "Zmiana początkowego średniego okresu "
+            "użytkowania kapitału: alk₀ = 20"
+        ),
         "a = 0,60": "Zmiana skłonności do konsumpcji: a = 0,60",
         "a = 0,80": "Zmiana skłonności do konsumpcji: a = 0,80",
     }
-    for chart_index in range(0, len(sensitivity_charts), 2):
+
+    current_group = None
+
+    for chart_index in range(
+        0,
+        len(sensitivity_charts),
+        2
+    ):
+        variant = sensitivity_charts[chart_index][0]
+
+        if variant != current_group:
+            st.markdown(
+                f"### {group_titles[variant]}"
+            )
+            current_group = variant
+
         col1, col2 = st.columns(2)
 
         with col1:
             variant, column, title = sensitivity_charts[chart_index]
+
             st.plotly_chart(
                 sensitivity_chart(
                     sensitivity_data[variant],
                     column,
                     title
                 ),
-                use_container_width=True
+                use_container_width=True,
+                key=f"sensitivity_left_{chart_index}"
             )
 
         if chart_index + 1 < len(sensitivity_charts):
             with col2:
-                variant, column, title = sensitivity_charts[chart_index + 1]
+                variant, column, title = sensitivity_charts[
+                    chart_index + 1
+                ]
+
                 st.plotly_chart(
                     sensitivity_chart(
                         sensitivity_data[variant],
                         column,
                         title
                     ),
-                    use_container_width=True
+                    use_container_width=True,
+                    key=f"sensitivity_right_{chart_index}"
                 )
 
+
 with tab4:
-	st.markdown("""
+    st.markdown("""
 ### Założenia modelu
 
 - Symulacja przebiega w czasie dyskretnym z krokiem `dt = 0.01`; horyzont jest przeliczany na liczbę kroków.
 - Parametry `E`, `ζ`, `R` i pozostałe parametry są stałe w czasie w ramach jednego scenariusza. Różne scenariusze mogą mieć różne wartości tych parametrów.
-- `E` jest stałym w czasie indeksem warunków środowiskowych; w interfejsie przyjmuje wartości od `0.01` do `1.0`, a `E = 1` oznacza poziom referencyjny.
-- `ζ` określa siłę wpływu środowiska na produkcję przez `E^ζ`. Przy `E = 1` jego zmiana nie wpływa na wyniki, dlatego należy go interpretować razem z `E < 1`.
+- `E` jest stałym w czasie współczynnikiem oddziaływania transformacji ekologicznej; w interfejsie przyjmuje wartości od `0.01` do `1.0`, a `E = 1` oznacza poziom referencyjny.
+- `ζ` określa siłę wpływu `E` na produkcję przez `E^ζ`. Przy `E = 1` jego zmiana nie wpływa na wyniki, dlatego należy go interpretować razem z `E < 1`.
 - `R` jest stałą marżą/kosztem kapitału. Wpływa na koszt użytkowania kapitału, `KLR` oraz wyznaczanie `α`.
 - `γ₀` określa podstawową siłę dostosowania `alk`, a `γ_E` dodatkowo waży to dostosowanie zależnie od odchylenia środowiska od poziomu referencyjnego przez czynnik `(1 - E)`.
 - W kodzie oba parametry działają ze znakiem minus: `[-γ₀ − γ_E · (1 − E)] · (KLR/KLR₀ − 1)`. Ich interpretacja wynika więc z tej konwencji znaków, a nie ze wzoru z dodatnim `γ₀`.
@@ -515,41 +806,130 @@ with tab4:
 - Zabezpieczenia `max(..., 10⁻¹²)` i `clip(...)` chronią przed dzieleniem przez zero oraz wartościami spoza stabilnego zakresu.
 """)
 
+
 with tab5:
-	st.subheader("Wzory używane w modelu")
-	st.caption("Równania są zapisywane dla okresu n. Zmienne z indeksem n−1 pochodzą z poprzedniego kroku symulacji.")
+    st.subheader("Wzory używane w modelu")
+    st.caption(
+        "Równania są zapisywane dla okresu n. Zmienne z indeksem n−1 "
+        "pochodzą z poprzedniego kroku symulacji."
+    )
 
-	st.markdown("#### Warunki początkowe i parametry")
-	st.latex(r"KLR_0 = \frac{K_0}{L_0} = \frac{\alpha_0 rw_0}{\left(\frac{1}{alk_0} + R\right)(1-\alpha_0)}")
-	st.latex(r"\beta_n = 1 - \alpha_n")
-	st.latex(r"Pop_n = Pop_0 e^{n \cdot t_n}")
-	st.latex(r"L_n = \frac{L_0}{Pop_0} \cdot Pop_n")
+    st.markdown("#### Warunki początkowe i parametry")
 
-	st.markdown("#### Produkcja i technologia")
-	st.latex(r"q_n = q_0 \cdot E^{\zeta} \cdot \left(\frac{K_n}{K_0}\right)^{\alpha_n} \cdot \left(\frac{L_n}{L_0}\right)^{\beta_n}")
-	st.latex(r"alk_n = alk_0 \cdot e^{[-\gamma_0 - \gamma_E(1-E)]\left(\frac{KLR_{n-1}}{KLR_0} - 1\right)} \quad (n > 0)")
-	st.latex(r"alk_0 = alk_0")
-	st.latex(r"KOR_n = \frac{K_n}{q_n}")
-	st.latex(r"rw_n = \frac{\beta_n q_n}{L_n}")
-	st.latex(r"KLR_n = \frac{K_n}{L_n} = \frac{\alpha_n rw_n}{\left(\frac{1}{alk_n} + R\right)\beta_n}")
-	st.latex(r"KLR_n^{\mathrm{wzór}} = \frac{\alpha_n rw_n}{\max\left[\left(\frac{1}{alk_n} + R\right)\beta_n,\ 10^{-12}\right]}")
-	st.latex(r"\Delta KLR_n = KLR_n - KLR_n^{\mathrm{wzór}}")
-	st.latex(r"\alpha_n \text{ jest wyznaczane numerycznie z } \alpha_n = KOR_n\left(\frac{1}{alk_n} + R\right),\quad 0.02 \leq \alpha_n \leq 0.98")
+    st.latex(
+        r"KLR_0 = \frac{K_0}{L_0} = "
+        r"\frac{\alpha_0 rw_0}"
+        r"{\left(\frac{1}{alk_0} + R\right)(1-\alpha_0)}"
+    )
 
-	st.markdown("#### Popyt, handel i równowaga rynkowa")
-	st.latex(r"C_n = a \cdot P_q \cdot q_n")
-	st.latex(r"G_n = GovSp \cdot P_q \cdot q_n")
-	st.latex(r"M_n = m_0 \cdot P_q \cdot q_n \cdot \left(\frac{alk_0}{alk_n}\right)^{\eta}")
-	st.latex(r"X_n = x_0 \cdot P_q \cdot q_n \cdot \left(\frac{KLR_n}{KLR_0}\right)^{\kappa}")
-	st.latex(r"I_n^p = \max\left[b(C_n - C_{n-1}),\ 0\right], \quad I_0^p = 0")
-	st.latex(r"Y_n^p = C_n + I_n^p + G_n + X_n - M_n")
-	st.latex(r"I_n = I_n^p + P_q q_n - Y_n^p")
-	st.latex(r"Y_n = C_n + I_n + G_n + X_n - M_n")
-	st.latex(r"P_q q_n = Y_n")
+    st.latex(r"\beta_n = 1 - \alpha_n")
+    st.latex(r"Pop_n = Pop_0 e^{n \cdot t_n}")
+    st.latex(r"L_n = \frac{L_0}{Pop_0} \cdot Pop_n")
 
-	st.markdown("#### Kapitał, zysk i wskaźniki")
-	st.latex(r"K_{n+1} = \max\left[K_n + \Delta t\left(\frac{I_n}{P_q} - \frac{K_n}{alk_n}\right),\ 10^{-8}\right]")
-	st.latex(r"\pi_n = P_q q_n - P_k K_n\left(\frac{1}{alk_n} + R\right) - P_q L_n rw_n")
-	st.latex(r"u_n = 1 - \frac{L_n}{Pop_n}")
-	st.latex(r"g_{x,n} = \frac{x_n - x_{n-1}}{x_{n-1}\Delta t}")
-	st.latex(r"g_{q,n}^{\mathrm{równanie}} = \alpha_n g_{K,n} + \beta_n g_{L,n} + KOR_n \frac{rw_n}{KLR_n} \ln\left(\frac{KLR_n}{KLR_0}\right) \left[\frac{\dot{KLR}_n}{KLR_n} - \frac{\dot{rw}_n}{rw_n}\right]")
+    st.markdown("#### Produkcja i technologia")
+
+    st.latex(
+        r"q_n = q_0 \cdot E^{\zeta} \cdot "
+        r"\left(\frac{K_n}{K_0}\right)^{\alpha_n} \cdot "
+        r"\left(\frac{L_n}{L_0}\right)^{\beta_n}"
+    )
+
+    st.latex(
+        r"alk_n = alk_0 \cdot "
+        r"e^{[-\gamma_0 - \gamma_E(1-E)]"
+        r"\left(\frac{KLR_{n-1}}{KLR_0} - 1\right)}"
+        r"\quad (n > 0)"
+    )
+
+    st.latex(r"alk_0 = alk_0")
+    st.latex(r"KOR_n = \frac{K_n}{q_n}")
+    st.latex(r"rw_n = \frac{\beta_n q_n}{L_n}")
+
+    st.latex(
+        r"KLR_n = \frac{K_n}{L_n} = "
+        r"\frac{\alpha_n rw_n}"
+        r"{\left(\frac{1}{alk_n} + R\right)\beta_n}"
+    )
+
+    st.latex(
+        r"KLR_n^{\mathrm{wzór}} = "
+        r"\frac{\alpha_n rw_n}"
+        r"{\max\left[\left(\frac{1}{alk_n} + R\right)"
+        r"\beta_n,\ 10^{-12}\right]}"
+    )
+
+    st.latex(
+        r"\Delta KLR_n = KLR_n - KLR_n^{\mathrm{wzór}}"
+    )
+
+    st.latex(
+        r"\alpha_n \text{ jest wyznaczane numerycznie z } "
+        r"\alpha_n = KOR_n\left(\frac{1}{alk_n} + R\right),"
+        r"\quad 0.02 \leq \alpha_n \leq 0.98"
+    )
+
+    st.markdown("#### Popyt, handel i równowaga rynkowa")
+
+    st.latex(r"C_n = a \cdot P_q \cdot q_n")
+    st.latex(r"G_n = GovSp \cdot P_q \cdot q_n")
+
+    st.latex(
+        r"M_n = m_0 \cdot P_q \cdot q_n \cdot "
+        r"\left(\frac{alk_0}{alk_n}\right)^{\eta}"
+    )
+
+    st.latex(
+        r"X_n = x_0 \cdot P_q \cdot q_n \cdot "
+        r"\left(\frac{KLR_n}{KLR_0}\right)^{\kappa}"
+    )
+
+    st.latex(
+        r"I_n^p = \max\left[b(C_n - C_{n-1}),\ 0\right], "
+        r"\quad I_0^p = 0"
+    )
+
+    st.latex(
+        r"Y_n^p = C_n + I_n^p + G_n + X_n - M_n"
+    )
+
+    st.latex(
+        r"I_n = I_n^p + P_q q_n - Y_n^p"
+    )
+
+    st.latex(
+        r"Y_n = C_n + I_n + G_n + X_n - M_n"
+    )
+
+    st.latex(r"P_q q_n = Y_n")
+
+    st.markdown("#### Kapitał, zysk i wskaźniki")
+
+    st.latex(
+        r"K_{n+1} = \max\left[K_n + \Delta t"
+        r"\left(\frac{I_n}{P_q} - \frac{K_n}{alk_n}\right),"
+        r"\ 10^{-8}\right]"
+    )
+
+    st.latex(
+        r"\pi_n = P_q q_n - P_k K_n"
+        r"\left(\frac{1}{alk_n} + R\right)"
+        r" - P_q L_n rw_n"
+    )
+
+    st.latex(
+        r"u_n = 1 - \frac{L_n}{Pop_n}"
+    )
+
+    st.latex(
+        r"g_{x,n} = "
+        r"\frac{x_n - x_{n-1}}{x_{n-1}\Delta t}"
+    )
+
+    st.latex(
+        r"g_{q,n}^{\mathrm{równanie}} = "
+        r"\alpha_n g_{K,n} + \beta_n g_{L,n} + "
+        r"KOR_n \frac{rw_n}{KLR_n} "
+        r"\ln\left(\frac{KLR_n}{KLR_0}\right)"
+        r"\left[\frac{\dot{KLR}_n}{KLR_n} "
+        r"- \frac{\dot{rw}_n}{rw_n}\right]"
+    )
