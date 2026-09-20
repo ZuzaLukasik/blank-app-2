@@ -293,13 +293,39 @@ def scenario_metric(formatter):
 
 
 def sensitivity_chart(variant_data, column, title):
-	frames = []
-	for scenario_name, frame in variant_data.items():
-		part = frame[["Okres", column]].copy()
-		part["Scenariusz"] = scenario_name
-		frames.append(part)
-	chart_data = pd.concat(frames, ignore_index=True)
-	return px.line(chart_data, x="Okres", y=column, color="Scenariusz", title=title)
+    frames = []
+    for scenario_name, frame in variant_data.items():
+        part = frame[["Okres", column]].copy()
+        part["Scenariusz"] = scenario_name
+        frames.append(part)
+
+    chart_data = pd.concat(frames, ignore_index=True)
+
+    fig = px.line(
+        chart_data,
+        x="Okres",
+        y=column,
+        color="Scenariusz",
+        title=title
+    )
+
+    fig.update_layout(
+        font=dict(color="#1f2937"),
+        title_font=dict(color="#1f2937"),
+        legend_font=dict(color="#1f2937")
+    )
+
+    fig.update_xaxes(
+        title_font=dict(color="#1f2937"),
+        tickfont=dict(color="#1f2937")
+    )
+
+    fig.update_yaxes(
+        title_font=dict(color="#1f2937"),
+        tickfont=dict(color="#1f2937")
+    )
+
+    return fig
 
 
 sensitivity_bases = {
