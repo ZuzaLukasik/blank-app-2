@@ -203,8 +203,8 @@ def scenario_inputs(label, key_prefix):
 	}
 
 
-st.title("Model wzrostu, produkcji i zysku")
-st.caption("Dyskretna implementacja funkcji produkcji z opóźnioną adaptacją udziału kapitału.")
+st.title("Model wzrostu gospodarczego z uwzględnieniem transformacji ekologicznej")
+st.caption("Symulacja dynamiki produkcji i czynników wzrostu z uwzględnieniem transformacji ekologicznej.")
 
 with st.sidebar:
 	st.header("Parametry symulacji")
