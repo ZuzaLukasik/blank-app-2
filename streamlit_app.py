@@ -7,8 +7,31 @@ import streamlit as st
 st.set_page_config(page_title="Model wzrostu i zysku", page_icon="📈", layout="wide")
 
 
+def solve_alpha(capital, labor, params, alk):
+	"""Solve alpha so marginal KLR equals the stock ratio K/L."""
+	def residual(candidate):
+		beta = 1 - candidate
+		output = (
+			params["q0"] * params["E"] ** params["zeta"]
+			* (capital / params["K0"]) ** candidate
+			* (labor / params["L0"]) ** beta
+		)
+		return candidate - capital / max(output, 1e-12) * (1 / alk + params["R"])
+
+	lower, upper = 0.02, 0.98
+	if residual(lower) * residual(upper) > 0:
+		raise ValueError("Nie można wyznaczyć alpha w zakresie 0.02-0.98 dla podanych parametrów.")
+	for _ in range(80):
+		middle = (lower + upper) / 2
+		if residual(lower) * residual(middle) <= 0:
+			upper = middle
+		else:
+			lower = middle
+	return (lower + upper) / 2
+
+
 def simulate(params):
-	"""Run the model with an explicit Euler step and delayed alpha adaptation."""
+	"""Run the model with market-clearing investment."""
 	dt = params["dt"]
 	steps = int(round(params["periods"] / dt))
 	times = np.arange(steps + 1) * dt
@@ -23,76 +46,99 @@ def simulate(params):
 	klr = np.zeros(len(times))
 	wage = np.zeros(len(times))
 	consumption = np.zeros(len(times))
-	planned_investment = np.zeros(len(times))
 	investment = np.zeros(len(times))
 	government = np.zeros(len(times))
 	exports = np.zeros(len(times))
 	imports = np.zeros(len(times))
 	profit = np.zeros(len(times))
+	klr_formula = np.zeros(len(times))
+	klr_difference = np.zeros(len(times))
+	planned_demand = np.zeros(len(times))
+	planned_investment_series = np.zeros(len(times))
 	demand = np.zeros(len(times))
-	alpha_raw = np.full(len(times), np.nan)
 
 	capital[0] = params["K0"]
 	labor[0] = params["L0"]
 	population[0] = params["Pop0"]
-	alpha[0] = np.clip(params["alpha0"], 0.02, 0.98)
 	employment_rate = params["L0"] / params["Pop0"]
 
 	for t in range(steps + 1):
-		beta[t] = 1 - alpha[t]
 		population[t] = params["Pop0"] * np.exp(params["n"] * times[t])
 		labor[t] = employment_rate * population[t]
+		if t == 0:
+			alk[t] = params["alk0"]
+		else:
+			adjustment = (
+				- params["gamma0"]
+				- params["gamma_E"] * (1 - params["E"])
+			) * (klr[t - 1] / params["KLR0"] - 1)
+			alk[t] = params["alk0"] * np.exp(adjustment)
+		alpha[t] = solve_alpha(capital[t], labor[t], params, alk[t])
+		beta[t] = 1 - alpha[t]
 
 		output[t] = (
 			params["q0"] * params["E"] ** params["zeta"]
 			* (capital[t] / params["K0"]) ** alpha[t]
 			* (labor[t] / params["L0"]) ** beta[t]
 		)
-		alk[t] = (
-			params["alk0"] * params["E"] ** (-params["theta"])
-			* np.exp(-params["gamma"] * (klr[t - 1] / params["KLR0"] - 1))
-			if t > 0 else params["alk0"]
-		)
 		kor[t] = capital[t] / max(output[t], 1e-12)
 		wage[t] = beta[t] * output[t] / max(labor[t], 1e-12)
-		klr[t] = alpha[t] * wage[t] / max((1 / alk[t] + params["R"]) * beta[t], 1e-12)
+		klr[t] = capital[t] / max(labor[t], 1e-12)
+		klr_formula[t] = (
+			alpha[t] * wage[t]
+			/ max((1 / alk[t] + params["R"]) * beta[t], 1e-12)
+		)
+		klr_difference[t] = klr[t] - klr_formula[t]
 
 		consumption[t] = params["a"] * params["Pq"] * output[t]
-		planned_investment[t] = max(params["b"] * (consumption[t] - consumption[t - 1]), 0) if t > 0 else 0
 		government[t] = params["GovSp"] * params["Pq"] * output[t]
 		imports[t] = params["m0"] * params["Pq"] * output[t] * (params["alk0"] / max(alk[t], 1e-12)) ** params["eta"]
 		exports[t] = params["x0"] * params["Pq"] * output[t] * (klr[t] / params["KLR0"]) ** params["kappa"]
-		investment[t] = params["Pq"] * output[t] - consumption[t] - government[t] - exports[t] + imports[t]
+		planned_investment = max(params["b"] * (consumption[t] - consumption[t - 1]), 0) if t > 0 else 0
+		planned_investment_series[t] = planned_investment
+		planned_demand[t] = consumption[t] + planned_investment + government[t] + exports[t] - imports[t]
+		investment[t] = planned_investment + params["Pq"] * output[t] - planned_demand[t]
 		demand[t] = consumption[t] + investment[t] + government[t] + exports[t] - imports[t]
+
+
 		profit[t] = output[t] * params["Pq"] - capital[t] * params["Pk"] * (1 / alk[t] + params["R"]) - labor[t] * wage[t] * params["Pq"]
 
 		if t < steps:
-			alpha_raw[t + 1] = kor[t] * (1 / alk[t] + params["R"])
-			alpha[t + 1] = np.clip(alpha[t] + dt * (alpha_raw[t + 1] - alpha[t]), 0.02, 0.98)
 			capital[t + 1] = max(capital[t] + dt * (investment[t] / params["Pq"] - capital[t] / max(alk[t], 1e-12)), 1e-8)
 
-	output_growth = np.r_[np.nan, np.diff(output) / np.maximum(output[:-1], 1e-12) / dt]
 	klr_growth = np.r_[np.nan, np.diff(klr) / np.maximum(klr[:-1], 1e-12) / dt]
 	wage_growth = np.r_[np.nan, np.diff(wage) / np.maximum(wage[:-1], 1e-12) / dt]
 	capital_growth = np.r_[np.nan, np.diff(capital) / np.maximum(capital[:-1], 1e-12) / dt]
 	labor_growth = np.r_[np.nan, np.diff(labor) / np.maximum(labor[:-1], 1e-12) / dt]
-	growth_identity = alpha * capital_growth + beta * labor_growth + kor * wage / np.maximum(klr, 1e-12) * np.log(np.maximum(klr / params["KLR0"], 1e-12)) * (klr_growth - wage_growth)
+	production_growth = np.r_[np.nan, np.diff(output) / np.maximum(output[:-1], 1e-12) / dt]
+	growth_identity = (
+		alpha * capital_growth
+		+ beta * labor_growth
+		+ kor * wage / np.maximum(klr, 1e-12)
+		* np.log(np.maximum(klr / params["KLR0"], 1e-12))
+		* (klr_growth - wage_growth)
+	)
 
 	return pd.DataFrame({
 		"Okres": times, "Kapitał K": capital, "Praca L": labor, "Populacja": population,
-		"Produkcja q": output, "Popyt Y": demand, "alpha": alpha, "alpha surowe": alpha_raw,
+		"Produkcja q": output, "Popyt planowany Yp": planned_demand, "Popyt Y": demand, "alpha": alpha,
 		"beta": beta, "alk": alk, "KOR": kor, "KLR": klr, "Płaca rw": wage,
-		"Konsumpcja C": consumption, "Inwestycje planowane I*": planned_investment,
-		"Inwestycje wymagane I": investment, "Wydatki G": government,
+		"KLR ze wzoru": klr_formula, "Różnica KLR": klr_difference,
+		"Konsumpcja C": consumption, "Inwestycje I": investment,
+		"Inwestycje planowane Ip": planned_investment_series,
+		"Wydatki G": government,
 		"Eksport X": exports, "Import M": imports, "Zysk pi": profit,
 		"Bezrobocie u": 1 - labor / population, "Luka popytowa": demand - params["Pq"] * output,
-		"Wzrost q": output_growth, "Wzrost q z równania": growth_identity,
+		"Stopa wzrostu produkcji": production_growth, "Wzrost gospodarczy": growth_identity,
 	})
 
 
 def base_params(values):
-	names = ["periods", "dt", "K0", "L0", "Pop0", "q0", "alpha0", "alk0", "E", "zeta", "theta", "gamma", "R", "n", "a", "b", "GovSp", "m0", "eta", "x0", "kappa", "Pq", "Pk"]
+	names = ["periods", "dt", "K0", "L0", "Pop0", "q0", "alk0", "E", "zeta", "gamma_E", "gamma0", "R", "n", "a", "b", "GovSp", "m0", "eta", "x0", "kappa", "Pq", "Pk"]
 	params = {name: values[name] for name in names}
+	params["alpha0"] = solve_alpha(params["K0"], params["L0"], params, params["alk0"])
+	params["beta0"] = 1 - params["alpha0"]
+	params["wage0"] = params["beta0"] * params["q0"] / params["L0"]
 	params["KLR0"] = params["K0"] / params["L0"]
 	return params
 
@@ -102,27 +148,26 @@ def scenario_inputs(label, key_prefix):
 	periods = st.number_input("Horyzont symulacji", 5, 200, 40, key=f"{key_prefix}_periods")
 	K0 = st.number_input("Kapitał K₀", 1.0, 1_000_000.0, 100.0, key=f"{key_prefix}_K0")
 	L0 = st.number_input("Praca L₀", 1.0, 1_000_000.0, 100.0, key=f"{key_prefix}_L0")
-	Pop0 = st.number_input("Populacja Pop₀", 1.0, 10_000_000.0, 120.0, key=f"{key_prefix}_Pop0")
+	Pop0 = st.number_input("Populacja Pop₀", 1.0, 10_000_000.0, 108.0, key=f"{key_prefix}_Pop0_v2")
 	q0 = st.number_input("Produkcja bazowa q₀", 1.0, 1_000_000.0, 100.0, key=f"{key_prefix}_q0")
-	alpha0 = st.slider("α₀", 0.02, 0.98, 0.35, 0.01, key=f"{key_prefix}_alpha0")
-	alk0 = st.number_input("Średni okres użytkowania alk₀", 1.0, 100.0, 20.0, key=f"{key_prefix}_alk0")
-	st.metric("Bazowe KLR₀ = K₀ / L₀", f"{K0 / L0:.4f}")
+	alk0 = st.number_input("Średni okres użytkowania alk₀", 1.0, 100.0, 10.0, key=f"{key_prefix}_alk0_v2")
 	st.subheader("Technologia i dynamika")
 	if f"{key_prefix}_E" in st.session_state and not 0 < st.session_state[f"{key_prefix}_E"] <= 1:
 		st.session_state[f"{key_prefix}_E"] = 1.0
 	if f"{key_prefix}_zeta" in st.session_state and st.session_state[f"{key_prefix}_zeta"] <= 0:
 		st.session_state[f"{key_prefix}_zeta"] = 0.10
-	if f"{key_prefix}_theta" in st.session_state and st.session_state[f"{key_prefix}_theta"] <= 0:
-		st.session_state[f"{key_prefix}_theta"] = 0.10
-	E = st.slider("Czynnik środowiskowy E", 0.01, 1.0, 1.0, 0.01, key=f"{key_prefix}_E")
+	E = st.slider("Współczynnik oddziaływania transformacji ekologicznej E", 0.01, 1.0, 1.0, 0.01, key=f"{key_prefix}_E")
 	zeta = st.number_input("ζ", 0.01, 5.0, 1.0, 0.1, key=f"{key_prefix}_zeta")
-	theta = st.number_input("θ", 0.01, 5.0, 1.0, 0.1, key=f"{key_prefix}_theta")
-	gamma = st.number_input("γ", -5.0, 5.0, 0.25, 0.05, key=f"{key_prefix}_gamma")
+	gamma_E = st.number_input("γ_E", -5.0, 5.0, 0.25, 0.05, key=f"{key_prefix}_gamma_E")
+	gamma0 = st.number_input("γ₀", -5.0, 5.0, 0.25, 0.05, key=f"{key_prefix}_gamma0")
 	R = st.slider("R", -0.05, 0.50, 0.05, 0.01, key=f"{key_prefix}_R")
+	alpha0 = (K0 / (q0 * E ** zeta)) * (1 / alk0 + R)
+	st.metric("Bazowe KLR₀", f"{K0 / L0:.4f}")
+	st.caption(f"α₀ jest wyliczane ze wzoru i nie można go ustawić ręcznie: α₀ = {alpha0:.4f}")
 	n = st.slider("Tempo wzrostu populacji n", -0.05, 0.10, 0.02, 0.005, key=f"{key_prefix}_n")
 	st.subheader("Popyt i handel")
 	a = st.slider("Skłonność do konsumpcji a", 0.0, 1.0, 0.70, 0.01, key=f"{key_prefix}_a")
-	b = st.slider("Akcelerator inwestycji b", 0.0, 5.0, 1.00, 0.05, key=f"{key_prefix}_b")
+	b = st.slider("Parametr inwestycji b", 0.0, 5.0, 1.00, 0.05, key=f"{key_prefix}_b")
 	GovSp = st.slider("Wydatki rządowe / Y", 0.0, 0.5, 0.15, 0.01, key=f"{key_prefix}_GovSp")
 	m0 = st.slider("Import / Y (m₀)", 0.0, 0.8, 0.20, 0.01, key=f"{key_prefix}_m0")
 	eta = st.number_input("η", -5.0, 5.0, 0.5, 0.1, key=f"{key_prefix}_eta")
@@ -132,8 +177,8 @@ def scenario_inputs(label, key_prefix):
 	Pk = st.number_input("Cena kapitału Pk", 0.01, 100.0, 1.0, 0.1, key=f"{key_prefix}_Pk")
 	return {
 		"periods": periods, "dt": 0.01, "K0": K0, "L0": L0, "Pop0": Pop0,
-		"q0": q0, "alpha0": alpha0, "alk0": alk0, "E": E, "zeta": zeta,
-		"theta": theta, "gamma": gamma, "R": R, "n": n, "a": a, "b": b,
+		"q0": q0, "alk0": alk0, "E": E, "zeta": zeta,
+		"R": R, "n": n, "a": a, "b": b, "gamma_E": gamma_E, "gamma0": gamma0,
 		"GovSp": GovSp, "m0": m0, "eta": eta, "x0": x0, "kappa": kappa,
 		"Pq": Pq, "Pk": Pk,
 	}
@@ -147,31 +192,30 @@ with st.sidebar:
 	st.caption("Krok obliczeń: dt = 0.01")
 	st.session_state["scenario_a_E"] = 1.0
 	st.session_state["scenario_a_zeta"] = 1.0
-	st.session_state["scenario_a_theta"] = 1.0
 	with st.expander("Scenariusz A", expanded=True):
 		values = scenario_inputs("Parametry scenariusza A", "scenario_a")
 	compare_scenarios = st.checkbox("Pokaż scenariusz B na wspólnych wykresach", value=True)
 	if compare_scenarios:
 		with st.expander("Scenariusz B", expanded=True):
-			st.caption("Scenariusz B dziedziczy wszystkie parametry A poza E, ζ i θ.")
+			st.caption("Scenariusz B dziedziczy parametry A z możliwością zmiany E, ζ, γ₀ i γ_E.")
 			values_b = dict(values)
 			if "scenario_b_E" in st.session_state and not 0 < st.session_state["scenario_b_E"] < 1:
 				st.session_state["scenario_b_E"] = 0.70
 			values_b["E"] = st.slider("Czynnik środowiskowy E", 0.01, 0.99, 0.70, 0.01, key="scenario_b_E")
 			values_b["zeta"] = st.number_input("ζ", 0.01, 5.0, 1.2, 0.1, key="scenario_b_zeta")
-			values_b["theta"] = st.number_input("θ", 0.01, 5.0, 2.0, 0.1, key="scenario_b_theta")
+			values_b["gamma0"] = st.number_input("γ₀", 0.0, 5.0, 0.25, 0.05, key="scenario_b_gamma0")
+			values_b["gamma_E"] = st.number_input("γ_E", 0.0, 5.0, 0.25, 0.05, key="scenario_b_gamma_E")
 		with st.expander("Scenariusz C", expanded=True):
-			st.caption("C pokazuje korzystny wariant: niższe E i ujemne ζ zwiększają poziom produkcji.")
+			st.caption("C pokazuje korzystny wariant: niższe E i niższe ζ zwiększają poziom produkcji.")
 			values_c = dict(values)
 			if "scenario_c_E" in st.session_state and not 0 < st.session_state["scenario_c_E"] < 1:
 				st.session_state["scenario_c_E"] = 0.25
 			values_c["E"] = st.slider("Czynnik środowiskowy E", 0.01, 0.99, 0.85, 0.01, key="scenario_c_E")
 			if "scenario_c_zeta" in st.session_state and st.session_state["scenario_c_zeta"] <= 0:
-				st.session_state["scenario_c_zeta"] = 2.0
-			if "scenario_c_theta" in st.session_state and st.session_state["scenario_c_theta"] <= 0:
-				st.session_state["scenario_c_theta"] = 2.5
-			values_c["zeta"] = st.number_input("ζ", 0.01, 5.0, 2.0, 0.1, key="scenario_c_zeta")
-			values_c["theta"] = st.number_input("θ", 0.01, 5.0, 2.5, 0.1, key="scenario_c_theta")
+				st.session_state["scenario_c_zeta"] = 1.2
+			values_c["zeta"] = st.number_input("ζ", 0.01, 5.0, 1.2, 0.1, key="scenario_c_zeta")
+			values_c["gamma0"] = st.number_input("γ₀", 0.0, 5.0, 0.25, 0.05, key="scenario_c_gamma0")
+			values_c["gamma_E"] = st.number_input("γ_E", 0.0, 5.0, 0.25, 0.05, key="scenario_c_gamma_E")
 	else:
 		values_b = None
 		values_c = None
@@ -201,6 +245,28 @@ def scenario_metric(formatter):
 	)
 
 
+def sensitivity_chart(variants, column, title):
+	frames = []
+	for variant_name, frame in variants.items():
+		part = frame[["Okres", column]].copy()
+		part["Wariant"] = variant_name
+		frames.append(part)
+	chart_data = pd.concat(frames, ignore_index=True)
+	return px.line(chart_data, x="Okres", y=column, color="Wariant", title=title)
+
+
+sensitivity_data = {}
+for parameter, variants in {
+		"K0": [("K0 = 50", 50.0), ("K0 = 200", 200.0)],
+		"alk0": [("alk0 = 5", 5.0), ("alk0 = 20", 20.0)],
+		"a": [("a = 0,60", 0.60), ("a = 0,80", 0.80)],
+	}.items():
+	for variant_name, variant_value in variants:
+		variant_values = dict(values)
+		variant_values[parameter] = variant_value
+		sensitivity_data[variant_name] = simulate(base_params(variant_values))
+
+
 metric_cols = st.columns(5)
 metric_cols[0].metric("Produkcja końcowa", scenario_metric(lambda frame: f"{frame['Produkcja q'].iloc[-1]:,.2f}"))
 metric_cols[1].metric("Kapitał końcowy", scenario_metric(lambda frame: f"{frame['Kapitał K'].iloc[-1]:,.2f}"))
@@ -208,9 +274,13 @@ metric_cols[2].metric("α końcowe", scenario_metric(lambda frame: f"{frame['alp
 metric_cols[3].metric("Suma zysku", scenario_metric(lambda frame: f"{frame['Zysk pi'].sum():,.2f}"))
 metric_cols[4].metric("Bezrobocie", scenario_metric(lambda frame: f"{100 * frame['Bezrobocie u'].iloc[-1]:.2f}%"))
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Przebieg modelu", "Zysk i R", "Równowaga popytu", "Analiza wrażliwości", "Założenia"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+	"Przebieg modelu", "Zysk i R", "Równowaga popytu", "Analiza wrażliwości", "Założenia", "Wzory",
+])
 with tab1:
 	st.subheader("Osobne wykresy wszystkich zmiennych")
+	st.plotly_chart(scenario_chart("alk", "Średni okres użytkowania kapitału alk"), use_container_width=True, key="alk_chart")
+	st.plotly_chart(scenario_chart("KLR", "Relacja kapitał-praca KLR"), use_container_width=True, key="klr_chart")
 	plot_columns = [column for column in data.columns if column != "Okres"]
 	for index in range(0, len(plot_columns), 2):
 		left, right = st.columns(2)
@@ -239,80 +309,121 @@ with tab2:
 		st.plotly_chart(px.line(x=candidates, y=scores, labels={"x": "R", "y": "Suma zysku"}, title="Funkcja celu względem R"), use_container_width=True, key="r_optimization_chart")
 
 with tab3:
-	max_gap = data["Luka popytowa"].abs().max()
-	if max_gap < 1e-10:
-		st.success("Równowaga spełniona: Y = Pq · q w każdym okresie.")
+	accounting_gap = (data["Produkcja q"] * values["Pq"] - data["Popyt Y"]).abs().max()
+	if accounting_gap < 1e-10:
+		st.success("Równowaga rynkowa spełniona: produkcja = popyt w każdym okresie.")
 	else:
-		st.error(f"Równowaga niespełniona. Maksymalna luka: {max_gap:.2e}")
-	st.write("Inwestycje I są wyznaczane jako składnik domykający, a inwestycje planowane I* pokazują wynik reguły akceleratora przed narzuceniem równowagi.")
-	st.plotly_chart(scenario_chart("Inwestycje planowane I*", "Inwestycje planowane I*"), use_container_width=True, key="planned_investment_chart")
-	st.plotly_chart(scenario_chart("Inwestycje wymagane I", "Inwestycje wymagane I"), use_container_width=True, key="required_investment_chart")
-	st.plotly_chart(scenario_chart("Wzrost q", "Wzrost q"), use_container_width=True, key="output_growth_chart")
-	st.plotly_chart(scenario_chart("Wzrost q z równania", "Wzrost q z równania"), use_container_width=True, key="output_growth_identity_chart")
+		st.warning(f"Równowaga rynkowa niespełniona. Luka: {accounting_gap:.2e}")
+	st.write("Popyt planowany wykorzystuje behawioralną inwestycję Iᵖ = b · ΔC. Inwestycja faktyczna jest korygowana o różnicę między produkcją a popytem planowanym, aby zapewnić równowagę rynkową.")
+	st.plotly_chart(scenario_chart("Inwestycje I", "Inwestycje I"), use_container_width=True, key="investment_chart")
+	st.plotly_chart(scenario_chart("Wzrost gospodarczy", "Wzrost gospodarczy z równania"), use_container_width=True, key="output_growth_chart")
 
 with tab4:
-	st.subheader("Analiza wrażliwości")
-	st.write("Każdy wykres zmienia jeden parametr względem scenariusza A, a pozostałe parametry pozostają stałe.")
-	st.info("Wariant bazowy: A = E 1.0, ζ 1.0, θ 1.0. Warianty B i C pokazują odchylenia od tej bazy.")
+	st.subheader("Wpływ wybranych parametrów na dynamikę modelu")
+	st.caption("Każdy wariant zmienia wyłącznie parametr wskazany w tytule; pozostałe parametry pozostają takie jak w scenariuszu A.")
 
-	sensitivity_specs = [
-		("E", [0.10, 0.25, 0.40, 0.70, 0.85, 1.0], "Czynnik środowiskowy E"),
-		("zeta", [0.1, 0.5, 1.0, 1.5, 2.0, 2.5], "Parametr ζ"),
-		("theta", [0.1, 0.5, 1.0, 1.5, 2.0, 2.5], "Parametr θ"),
+	sensitivity_charts = [
+		("K0 = 50", "Kapitał K", "3.19 Dynamika zasobu kapitału przy K0 = 50"),
+		("K0 = 200", "Kapitał K", "3.20 Dynamika zasobu kapitału przy K0 = 200"),
+		("K0 = 50", "Inwestycje I", "3.21 Dynamika inwestycji przy K0 = 50"),
+		("K0 = 200", "Inwestycje I", "3.22 Dynamika inwestycji przy K0 = 200"),
+		("K0 = 50", "KLR", "3.23 Techniczne uzbrojenie pracy KLR przy K0 = 50"),
+		("K0 = 200", "KLR", "3.24 Techniczne uzbrojenie pracy KLR przy K0 = 200"),
+		("K0 = 50", "alk", "3.25 Dynamika średniego okresu użytkowania kapitału alk przy K0 = 50"),
+		("K0 = 200", "alk", "3.26 Dynamika średniego okresu użytkowania kapitału alk przy K0 = 200"),
+		("K0 = 50", "Produkcja q", "3.27 Dynamika produkcji przy K0 = 50"),
+		("K0 = 200", "Produkcja q", "3.28 Dynamika produkcji przy K0 = 200"),
+		("K0 = 50", "Stopa wzrostu produkcji", "3.29 Stopa wzrostu produkcji przy K0 = 50"),
+		("K0 = 200", "Stopa wzrostu produkcji", "3.30 Stopa wzrostu produkcji przy K0 = 200"),
+		("alk0 = 5", "Kapitał K", "3.31 Dynamika zasobu kapitału przy alk0 = 5"),
+		("alk0 = 20", "Kapitał K", "3.32 Dynamika zasobu kapitału przy alk0 = 20"),
+		("alk0 = 5", "KLR", "3.33 Techniczne uzbrojenie pracy KLR przy alk0 = 5"),
+		("alk0 = 20", "KLR", "3.34 Techniczne uzbrojenie pracy KLR przy alk0 = 20"),
+		("alk0 = 5", "alk", "3.35 Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 5"),
+		("alk0 = 20", "alk", "3.36 Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 20"),
+		("alk0 = 5", "Stopa wzrostu produkcji", "3.37 Stopa wzrostu produkcji przy alk0 = 5"),
+		("alk0 = 20", "Stopa wzrostu produkcji", "3.38 Stopa wzrostu produkcji przy alk0 = 20"),
+		("a = 0,60", "Inwestycje I", "3.39 Inwestycje faktyczne dla a = 0,60"),
+		("a = 0,80", "Inwestycje I", "3.40 Inwestycje faktyczne dla a = 0,80"),
+		("a = 0,60", "Inwestycje planowane Ip", "3.41 Inwestycje planowane dla a = 0,60"),
+		("a = 0,80", "Inwestycje planowane Ip", "3.42 Inwestycje planowane dla a = 0,80"),
+		("a = 0,60", "Kapitał K", "3.43 Kapitał K dla a = 0,60"),
+		("a = 0,80", "Kapitał K", "3.44 Kapitał K dla a = 0,80"),
+		("a = 0,60", "Wzrost gospodarczy", "3.45 Wzrost gospodarczy dla a = 0,60"),
+		("a = 0,80", "Wzrost gospodarczy", "3.46 Wzrost gospodarczy dla a = 0,80"),
 	]
-
-	comparison_rows = []
-	for scenario_name, frame in scenario_data.items():
-		comparison_rows.append({
-			"Scenariusz": scenario_name,
-			"E": values["E"] if scenario_name == "Scenariusz A" else (values_b if scenario_name == "Scenariusz B" else values_c)["E"],
-			"ζ": values["zeta"] if scenario_name == "Scenariusz A" else (values_b if scenario_name == "Scenariusz B" else values_c)["zeta"],
-			"θ": values["theta"] if scenario_name == "Scenariusz A" else (values_b if scenario_name == "Scenariusz B" else values_c)["theta"],
-			"Produkcja końcowa": frame["Produkcja q"].iloc[-1],
-			"Kapitał końcowy": frame["Kapitał K"].iloc[-1],
-			"Suma zysku": frame["Zysk pi"].sum(),
-			"Bezrobocie końcowe": 100 * frame["Bezrobocie u"].iloc[-1],
-		})
-	st.markdown("#### Bezpośrednie porównanie scenariuszy")
-	st.dataframe(pd.DataFrame(comparison_rows).round(3), use_container_width=True, hide_index=True)
-
-	for parameter, candidates, title in sensitivity_specs:
-		rows = []
-		for candidate in candidates:
-			candidate_values = dict(values)
-			candidate_values[parameter] = candidate
-			candidate_data = simulate(base_params(candidate_values))
-			rows.append({
-				parameter: candidate,
-				"Produkcja końcowa": candidate_data["Produkcja q"].iloc[-1],
-				"Kapitał końcowy": candidate_data["Kapitał K"].iloc[-1],
-				"Suma zysku": candidate_data["Zysk pi"].sum(),
-				"Bezrobocie końcowe": 100 * candidate_data["Bezrobocie u"].iloc[-1],
-			})
-		sensitivity_data = pd.DataFrame(rows)
-		st.markdown(f"#### Wrażliwość na {title}")
+	for chart_index in range(0, len(sensitivity_charts), 2):
 		left, right = st.columns(2)
-		with left:
-			st.plotly_chart(
-				px.line(sensitivity_data, x=parameter, y=["Produkcja końcowa", "Kapitał końcowy"], markers=True, title="Produkcja i kapitał"),
-				use_container_width=True,
-				key=f"sensitivity_levels_{parameter}",
-			)
-		with right:
-			st.plotly_chart(
-				px.line(sensitivity_data, x=parameter, y=["Suma zysku", "Bezrobocie końcowe"], markers=True, title="Zysk i bezrobocie"),
-				use_container_width=True,
-				key=f"sensitivity_results_{parameter}",
-			)
-		st.dataframe(sensitivity_data.round(3), use_container_width=True, hide_index=True)
+		for container, chart_definition in zip((left, right), sensitivity_charts[chart_index:chart_index + 2]):
+			variant_name, column, title = chart_definition
+			with container:
+				st.plotly_chart(
+					sensitivity_chart(sensitivity_data, column, title),
+					use_container_width=True,
+					key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
+				)
 
 with tab5:
 	st.markdown("""
-Model stosuje regułę adaptacji **αₙ₊₁ = αₙ + dt · (α_docelowe − αₙ)**, gdzie **α_docelowe = KORₙ · (1/alkₙ + R)**. Wartość α jest ograniczana do przedziału (0, 1) wyłącznie dla stabilności numerycznej.
+### Założenia modelu
 
-	- `alk₀` jest wartością początkową i zawsze zachodzi `alk(0) = alk₀`, niezależnie od `E` i `θ`.
-	- Stałe E i ζ wpływają na poziom q, ale nie dodają bezpośredniego składnika do stopy wzrostu.
-	- `alk` wykorzystuje KLR z poprzedniego kroku, co zapobiega sprzężeniu algebraicznemu.
-	- Inwestycje planowane są `max(b · ΔC, 0)`, natomiast `I` jest wyznaczane tak, aby zachować `Y = Pq · q`; kapitał przechodzi dalej zgodnie z `Kₙ₊₁ = Kₙ + dt · (Iₙ/Pq − Kₙ/alkₙ)`.
-- Przy `Pq = Pk = 1` funkcja zysku upraszcza się dokładnie do postaci podanej w opisie.
+- Symulacja przebiega w czasie dyskretnym z krokiem `dt = 0.01`; horyzont jest przeliczany na liczbę kroków.
+- Parametry `E`, `ζ`, `R` i pozostałe parametry są stałe w czasie w ramach jednego scenariusza. Różne scenariusze mogą mieć różne wartości tych parametrów.
+- `E` jest stałym w czasie indeksem warunków środowiskowych; w interfejsie przyjmuje wartości od `0.01` do `1.0`, a `E = 1` oznacza poziom referencyjny.
+- `ζ` określa siłę wpływu środowiska na produkcję przez `E^ζ`. Przy `E = 1` jego zmiana nie wpływa na wyniki, dlatego należy go interpretować razem z `E < 1`.
+- `R` jest stałą marżą/kosztem kapitału. Wpływa na koszt użytkowania kapitału, `KLR` oraz wyznaczanie `α`.
+- `γ₀` określa podstawową siłę dostosowania `alk`, a `γ_E` dodatkowo waży to dostosowanie zależnie od odchylenia środowiska od poziomu referencyjnego przez czynnik `(1 - E)`.
+- W kodzie oba parametry działają ze znakiem minus: `[-γ₀ − γ_E · (1 − E)] · (KLR/KLR₀ − 1)`. Ich interpretacja wynika więc z tej konwencji znaków, a nie ze wzoru z dodatnim `γ₀`.
+- Funkcja produkcji ma postać Cobba-Douglasa: `q = q₀ · Eᶻᵉᵗᵃ · (K/K₀)^α · (L/L₀)^β`, gdzie `β = 1 − α`.
+- Populacja rośnie wykładniczo zgodnie z `Popₙ = Pop₀ · exp(n · tₙ)`. Praca utrzymuje stały początkowy wskaźnik zatrudnienia `L₀ / Pop₀`, dlatego `Lₙ = (L₀ / Pop₀) · Popₙ`.
+- Początkowy udział kapitału wynika ze wzoru `α₀ = clip[K₀/q₀ · (1/alk₀ + R), 0.02, 0.98]`. Kolejne wartości `α` są aktualizowane analogicznie na podstawie poprzedniego okresu.
+- `alk₀` jest wartością początkową. Dla `n > 0` najpierw wyznaczane jest `alkₙ` na podstawie znanego z poprzedniego kroku `KLRₙ₋₁`, a następnie z `alkₙ` obliczane jest `KLRₙ`.
+- Inwestycja planowana wynika ze zmiany konsumpcji: `Iᵖₙ = max[b · (Cₙ − Cₙ₋₁), 0]`, a inwestycja faktyczna jest korektą zapewniającą równowagę `Pq · qₙ = Cₙ + Iₙ + Gₙ + Xₙ − Mₙ`.
+- Kapitał zmienia się zgodnie z inwestycją pomniejszoną o zużycie `Kₙ/alkₙ`. Ujemny kapitał jest ograniczany do `10⁻⁸` wyłącznie dla stabilności obliczeń.
+- Płaca jest równa krańcowemu produktowi pracy: `rwₙ = βₙ · qₙ / Lₙ`. Zysk uwzględnia przychód, koszt kapitału, zużycie kapitału i koszt pracy.
+- Import zależy od `alk`, a eksport od relacji `KLR/KLR₀`. Parametry `η` i `κ` określają odpowiednie elastyczności.
+- Zabezpieczenia `max(..., 10⁻¹²)` i `clip(...)` chronią przed dzieleniem przez zero oraz wartościami spoza stabilnego zakresu.
 """)
+
+with tab6:
+	st.subheader("Wzory używane w modelu")
+	st.caption("Równania są zapisywane dla okresu n. Zmienne z indeksem n−1 pochodzą z poprzedniego kroku symulacji.")
+
+	st.markdown("#### Warunki początkowe i parametry")
+	st.latex(r"KLR_0 = \frac{K_0}{L_0} = \frac{\alpha_0 rw_0}{\left(\frac{1}{alk_0} + R\right)(1-\alpha_0)}")
+	st.latex(r"\beta_n = 1 - \alpha_n")
+	st.latex(r"Pop_n = Pop_0 e^{n \cdot t_n}")
+	st.latex(r"L_n = \frac{L_0}{Pop_0} \cdot Pop_n")
+
+	st.markdown("#### Produkcja i technologia")
+	st.latex(r"q_n = q_0 \cdot E^{\zeta} \cdot \left(\frac{K_n}{K_0}\right)^{\alpha_n} \cdot \left(\frac{L_n}{L_0}\right)^{\beta_n}")
+	st.latex(r"alk_n = alk_0 \cdot e^{[-\gamma_0 - \gamma_E(1-E)]\left(\frac{KLR_{n-1}}{KLR_0} - 1\right)} \quad (n > 0)")
+	st.latex(r"alk_0 = alk_0")
+	st.latex(r"KOR_n = \frac{K_n}{q_n}")
+	st.latex(r"rw_n = \frac{\beta_n q_n}{L_n}")
+	st.latex(r"KLR_n = \frac{K_n}{L_n} = \frac{\alpha_n rw_n}{\left(\frac{1}{alk_n} + R\right)\beta_n}")
+	st.latex(r"KLR_n^{\mathrm{wzór}} = \frac{\alpha_n rw_n}{\max\left[\left(\frac{1}{alk_n} + R\right)\beta_n,\ 10^{-12}\right]}")
+	st.latex(r"\Delta KLR_n = KLR_n - KLR_n^{\mathrm{wzór}}")
+	st.markdown("#### Kontrola różnicy KLR")
+	st.write("`Różnica KLR` porównuje bezpośrednie KLR = K/L z KLR obliczonym ze wzoru z udziałem α, płacy, β, alk i R. Wartość bliska zeru oznacza zgodność obu sposobów obliczenia.")
+	st.write(scenario_metric(lambda frame: f"maks. |Różnica KLR| = {frame['Różnica KLR'].abs().max():.3e}"))
+	st.plotly_chart(scenario_chart("Różnica KLR", "Różnica między bezpośrednim KLR a KLR ze wzoru"), use_container_width=True, key="klr_difference_chart")
+	st.latex(r"\alpha_n \text{ jest wyznaczane numerycznie z } \alpha_n = KOR_n\left(\frac{1}{alk_n} + R\right),\quad 0.02 \leq \alpha_n \leq 0.98")
+
+	st.markdown("#### Popyt, handel i równowaga rynkowa")
+	st.latex(r"C_n = a \cdot P_q \cdot q_n")
+	st.latex(r"G_n = GovSp \cdot P_q \cdot q_n")
+	st.latex(r"M_n = m_0 \cdot P_q \cdot q_n \cdot \left(\frac{alk_0}{alk_n}\right)^{\eta}")
+	st.latex(r"X_n = x_0 \cdot P_q \cdot q_n \cdot \left(\frac{KLR_n}{KLR_0}\right)^{\kappa}")
+	st.latex(r"I_n^p = \max\left[b(C_n - C_{n-1}),\ 0\right], \quad I_0^p = 0")
+	st.latex(r"Y_n^p = C_n + I_n^p + G_n + X_n - M_n")
+	st.latex(r"I_n = I_n^p + P_q q_n - Y_n^p")
+	st.latex(r"Y_n = C_n + I_n + G_n + X_n - M_n")
+	st.latex(r"P_q q_n = Y_n")
+
+	st.markdown("#### Kapitał, zysk i wskaźniki")
+	st.latex(r"K_{n+1} = \max\left[K_n + \Delta t\left(\frac{I_n}{P_q} - \frac{K_n}{alk_n}\right),\ 10^{-8}\right]")
+	st.latex(r"\pi_n = P_q q_n - P_k K_n\left(\frac{1}{alk_n} + R\right) - P_q L_n rw_n")
+	st.latex(r"u_n = 1 - \frac{L_n}{Pop_n}")
+	st.latex(r"g_{x,n} = \frac{x_n - x_{n-1}}{x_{n-1}\Delta t}")
+	st.latex(r"g_{q,n}^{\mathrm{równanie}} = \alpha_n g_{K,n} + \beta_n g_{L,n} + KOR_n \frac{rw_n}{KLR_n} \ln\left(\frac{KLR_n}{KLR_0}\right) \left[\frac{\dot{KLR}_n}{KLR_n} - \frac{\dot{rw}_n}{rw_n}\right]")
