@@ -246,7 +246,6 @@ if values_c is not None:
 	scenario_data["Scenariusz C"] = simulate(base_params(values_c))
 data = scenario_data["Scenariusz A"]
 
-
 def get_axis_label(column):
     units = {
         "Kapitał K": "Kapitał K [j.u.]",
@@ -258,7 +257,7 @@ def get_axis_label(column):
         "alpha": "Udział kapitału α [-]",
         "beta": "Udział pracy β [-]",
         "alk": "Średni okres użytkowania kapitału alk [lata]",
-        "KOR": "Kapitałochłonność KOR [j.u.]",
+        "KOR": "Relacja kapitału do produkcji KOR [j.u.]",
         "KLR": "Techniczne uzbrojenie pracy KLR [j.u.]",
         "Płaca rw": "Płaca rw [j.u.]",
         "Konsumpcja C": "Konsumpcja C [j.u.]",
@@ -286,7 +285,7 @@ def get_chart_title(column):
         "alpha": "Dynamika udziału kapitału w produkcji",
         "beta": "Dynamika udziału pracy w produkcji",
         "alk": "Dynamika średniego okresu użytkowania kapitału",
-        "KOR": "Dynamika kapitałochłonności",
+        "KOR": "Dynamika relacji kapitału do produkcji KOR",
         "KLR": "Dynamika technicznego uzbrojenia pracy",
         "Płaca rw": "Dynamika płacy realnej",
         "Konsumpcja C": "Dynamika konsumpcji",
