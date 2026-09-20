@@ -149,8 +149,7 @@ def simulate(params):
 		"Inwestycje planowane Ip": planned_investment_series,
 		"Wydatki G": government,
 		"Eksport X": exports, "Import M": imports, "Zysk pi": profit,
-		"Luka popytowa": demand - params["Pq"] * output,
-		"Stopa wzrostu produkcji": production_growth, "Wzrost gospodarczy": growth_identity,
+		"Luka popytowa": demand - params["Pq"] * output, "Wzrost gospodarczy": growth_identity,
 	})
 
 
@@ -272,7 +271,6 @@ def get_axis_label(column):
         "Import M": "Import M [j.u.]",
         "Zysk pi": "Zysk π [j.u.]",
         "Luka popytowa": "Luka popytowa [j.u.]",
-        "Stopa wzrostu produkcji": "Stopa wzrostu produkcji [-]",
         "Wzrost gospodarczy": "Wzrost gospodarczy [-]",
     }
 
@@ -440,16 +438,16 @@ with tab3:
 		("K0 = 200", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy K0 = 200"),
 		("K0 = 50", "Produkcja q", "Dynamika produkcji przy K0 = 50"),
 		("K0 = 200", "Produkcja q", "Dynamika produkcji przy K0 = 200"),
-		("K0 = 50", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy K0 = 50"),
-		("K0 = 200", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy K0 = 200"),
+		("K0 = 50", "Wzrost gospodarczy", "Wzrost gospodarczy przy K0 = 50"),
+		("K0 = 200", "Wzrost gospodarczy", "Wzrost gospodarczy przy K0 = 200"),
 		("alk0 = 5", "Kapitał K", "Dynamika zasobu kapitału przy alk0 = 5"),
 		("alk0 = 20", "Kapitał K", "Dynamika zasobu kapitału przy alk0 = 20"),
 		("alk0 = 5", "KLR", "Techniczne uzbrojenie pracy KLR przy alk0 = 5"),
 		("alk0 = 20", "KLR", "Techniczne uzbrojenie pracy KLR przy alk0 = 20"),
 		("alk0 = 5", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 5"),
 		("alk0 = 20", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 20"),
-		("alk0 = 5", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy alk0 = 5"),
-		("alk0 = 20", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy alk0 = 20"),
+		("alk0 = 5", "Wzrost gospodarczy", "Wzrost gospodarczy przy alk0 = 5"),
+		("alk0 = 20", "Wzrost gospodarczy", "Wzrost gospodarczy przy alk0 = 20"),
 		("a = 0,60", "Inwestycje I", "Inwestycje faktyczne dla a = 0,60"),
 		("a = 0,80", "Inwestycje I", "Inwestycje faktyczne dla a = 0,80"),
 		("a = 0,60", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,60"),
