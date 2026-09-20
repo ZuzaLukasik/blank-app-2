@@ -315,10 +315,6 @@ fig.update_yaxes(
 )
 
 return fig
-	
-
-    return fig
-
 
 def scenario_metric(formatter):
 	return " | ".join(
