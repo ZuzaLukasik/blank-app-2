@@ -5,6 +5,26 @@ import streamlit as st
 
 
 st.set_page_config(page_title="Model wzrostu i zysku", page_icon="📈", layout="wide")
+px.defaults.template = "plotly_white"
+
+st.markdown("""
+<style>
+	.stApp,
+	[data-testid="stMarkdownContainer"],
+	[data-testid="stMetricLabel"],
+	[data-testid="stMetricValue"],
+	[data-testid="stCaptionContainer"],
+	.stText,
+	h1, h2, h3, h4, h5, h6,
+	label {
+		color: #1f2937 !important;
+	}
+
+	[data-testid="stSidebar"] {
+		color: #1f2937;
+	}
+</style>
+""", unsafe_allow_html=True)
 
 
 def solve_alpha(capital, labor, params, alk):
@@ -355,22 +375,20 @@ with tab3:
 		("a = 0,60", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,60"),
 		("a = 0,80", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,80"),
 	]
-	variant_labels = {
-		"K0 = 50": "K₀ = 50",
-		"K0 = 200": "K₀ = 200",
-		"alk0 = 5": "alk₀ = 5",
-		"alk0 = 20": "alk₀ = 20",
-		"a = 0,60": "a = 0,60",
-		"a = 0,80": "a = 0,80",
+	group_titles = {
+		0: "Wyniki dla K₀ = 50 i K₀ = 200",
+		12: "Wyniki dla alk₀ = 5 i alk₀ = 20",
+		20: "Wyniki dla a = 0,60 i a = 0,80",
 	}
 	for chart_index in range(0, len(sensitivity_charts), 2):
+		if chart_index in group_titles:
+			st.subheader(group_titles[chart_index])
 		left, right = st.columns(2)
 		for container, chart_definition in zip(
 			(left, right), sensitivity_charts[chart_index:chart_index + 2]
 		):
 			variant_name, column, title = chart_definition
 			with container:
-				st.subheader(f"Wyniki dla {variant_labels[variant_name]}")
 				st.plotly_chart(
 					sensitivity_chart(sensitivity_data[variant_name], column, title),
 					use_container_width=True,
