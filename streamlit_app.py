@@ -249,6 +249,35 @@ if values_c is not None:
 data = scenario_data["Scenariusz A"]
 
 
+def get_axis_label(column):
+    units = {
+        "Kapitał K": "Kapitał K [j.u.]",
+        "Praca L": "Praca L [j.u.]",
+        "Populacja": "Populacja [j.u.]",
+        "Produkcja q": "Produkcja q [j.u.]",
+        "Popyt planowany Yp": "Popyt planowany Yp [j.u.]",
+        "Popyt Y": "Popyt Y [j.u.]",
+        "alpha": "Udział kapitału α [-]",
+        "beta": "Udział pracy β [-]",
+        "alk": "Średni okres użytkowania kapitału alk [lata]",
+        "KOR": "Kapitałochłonność KOR [lata]",
+        "KLR": "Techniczne uzbrojenie pracy KLR [j.u.]",
+        "Płaca rw": "Płaca rw [j.u.]",
+        "KLR ze wzoru": "KLR ze wzoru [j.u.]",
+        "Konsumpcja C": "Konsumpcja C [j.u.]",
+        "Inwestycje I": "Inwestycje I [j.u.]",
+        "Inwestycje planowane Ip": "Inwestycje planowane Ip [j.u.]",
+        "Wydatki G": "Wydatki G [j.u.]",
+        "Eksport X": "Eksport X [j.u.]",
+        "Import M": "Import M [j.u.]",
+        "Zysk pi": "Zysk π [j.u.]",
+        "Luka popytowa": "Luka popytowa [j.u.]",
+        "Stopa wzrostu produkcji": "Stopa wzrostu produkcji [%]",
+        "Wzrost gospodarczy": "Wzrost gospodarczy [%]",
+    }
+
+    return units.get(column, column)
+
 def scenario_chart(column, title=None):
     frames = []
     for scenario_name, frame in scenario_data.items():
@@ -259,29 +288,33 @@ def scenario_chart(column, title=None):
     chart_data = pd.concat(frames, ignore_index=True)
 
     fig = px.line(
-        chart_data,
-        x="Okres",
-        y=column,
-        color="Scenariusz",
-        title=title or column
-    )
+    chart_data,
+    x="Okres",
+    y=column,
+    color="Scenariusz",
+    title=title or column
+)
 
-    fig.update_layout(
+fig.update_layout(
     font=dict(color="#1f2937"),
     title_font=dict(color="#1f2937"),
     legend_font=dict(color="#1f2937"),
     legend_title_font=dict(color="#1f2937")
 )
-    fig.update_xaxes(
-        title_font=dict(color="#1f2937"),
-        tickfont=dict(color="#1f2937")
-    )
 
-    fig.update_yaxes(
-        title_font=dict(color="#1f2937"),
-        tickfont=dict(color="#1f2937")
-    )
+fig.update_xaxes(
+    title_text="Czas [lata]",
+    title_font=dict(color="#1f2937"),
+    tickfont=dict(color="#1f2937")
+)
 
+fig.update_yaxes(
+    title_text=get_axis_label(column),
+    title_font=dict(color="#1f2937"),
+    tickfont=dict(color="#1f2937")
+)
+
+return fig
 	
 
     return fig
@@ -303,31 +336,34 @@ def sensitivity_chart(variant_data, column, title):
 
     chart_data = pd.concat(frames, ignore_index=True)
 
-    fig = px.line(
-        chart_data,
-        x="Okres",
-        y=column,
-        color="Scenariusz",
-        title=title
-    )
+   fig = px.line(
+    chart_data,
+    x="Okres",
+    y=column,
+    color="Scenariusz",
+    title=title
+)
 
-    fig.update_layout(
+fig.update_layout(
     font=dict(color="#1f2937"),
     title_font=dict(color="#1f2937"),
     legend_font=dict(color="#1f2937"),
     legend_title_font=dict(color="#1f2937")
 )
 
-    fig.update_xaxes(
-        title_font=dict(color="#1f2937"),
-        tickfont=dict(color="#1f2937")
-    )
+fig.update_xaxes(
+    title_text="Czas [lata]",
+    title_font=dict(color="#1f2937"),
+    tickfont=dict(color="#1f2937")
+)
 
-    fig.update_yaxes(
-        title_font=dict(color="#1f2937"),
-        tickfont=dict(color="#1f2937")
-    )
+fig.update_yaxes(
+    title_text=get_axis_label(column),
+    title_font=dict(color="#1f2937"),
+    tickfont=dict(color="#1f2937")
+)
 
+return fig
     return fig
 
 
