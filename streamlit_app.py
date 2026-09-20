@@ -245,14 +245,8 @@ def scenario_metric(formatter):
 	)
 
 
-def sensitivity_chart(variants, column, title):
-	frames = []
-	for variant_name, frame in variants.items():
-		part = frame[["Okres", column]].copy()
-		part["Wariant"] = variant_name
-		frames.append(part)
-	chart_data = pd.concat(frames, ignore_index=True)
-	return px.line(chart_data, x="Okres", y=column, color="Wariant", title=title)
+def sensitivity_chart(frame, column, title):
+	return px.line(frame, x="Okres", y=column, title=title)
 
 
 sensitivity_data = {}
@@ -323,45 +317,50 @@ with tab4:
 	st.caption("Każdy wariant zmienia wyłącznie parametr wskazany w tytule; pozostałe parametry pozostają takie jak w scenariuszu A.")
 
 	sensitivity_charts = [
-		("K0 = 50", "Kapitał K", "3.19 Dynamika zasobu kapitału przy K0 = 50"),
-		("K0 = 200", "Kapitał K", "3.20 Dynamika zasobu kapitału przy K0 = 200"),
-		("K0 = 50", "Inwestycje I", "3.21 Dynamika inwestycji przy K0 = 50"),
-		("K0 = 200", "Inwestycje I", "3.22 Dynamika inwestycji przy K0 = 200"),
-		("K0 = 50", "KLR", "3.23 Techniczne uzbrojenie pracy KLR przy K0 = 50"),
-		("K0 = 200", "KLR", "3.24 Techniczne uzbrojenie pracy KLR przy K0 = 200"),
-		("K0 = 50", "alk", "3.25 Dynamika średniego okresu użytkowania kapitału alk przy K0 = 50"),
-		("K0 = 200", "alk", "3.26 Dynamika średniego okresu użytkowania kapitału alk przy K0 = 200"),
-		("K0 = 50", "Produkcja q", "3.27 Dynamika produkcji przy K0 = 50"),
-		("K0 = 200", "Produkcja q", "3.28 Dynamika produkcji przy K0 = 200"),
-		("K0 = 50", "Stopa wzrostu produkcji", "3.29 Stopa wzrostu produkcji przy K0 = 50"),
-		("K0 = 200", "Stopa wzrostu produkcji", "3.30 Stopa wzrostu produkcji przy K0 = 200"),
-		("alk0 = 5", "Kapitał K", "3.31 Dynamika zasobu kapitału przy alk0 = 5"),
-		("alk0 = 20", "Kapitał K", "3.32 Dynamika zasobu kapitału przy alk0 = 20"),
-		("alk0 = 5", "KLR", "3.33 Techniczne uzbrojenie pracy KLR przy alk0 = 5"),
-		("alk0 = 20", "KLR", "3.34 Techniczne uzbrojenie pracy KLR przy alk0 = 20"),
-		("alk0 = 5", "alk", "3.35 Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 5"),
-		("alk0 = 20", "alk", "3.36 Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 20"),
-		("alk0 = 5", "Stopa wzrostu produkcji", "3.37 Stopa wzrostu produkcji przy alk0 = 5"),
-		("alk0 = 20", "Stopa wzrostu produkcji", "3.38 Stopa wzrostu produkcji przy alk0 = 20"),
-		("a = 0,60", "Inwestycje I", "3.39 Inwestycje faktyczne dla a = 0,60"),
-		("a = 0,80", "Inwestycje I", "3.40 Inwestycje faktyczne dla a = 0,80"),
-		("a = 0,60", "Inwestycje planowane Ip", "3.41 Inwestycje planowane dla a = 0,60"),
-		("a = 0,80", "Inwestycje planowane Ip", "3.42 Inwestycje planowane dla a = 0,80"),
-		("a = 0,60", "Kapitał K", "3.43 Kapitał K dla a = 0,60"),
-		("a = 0,80", "Kapitał K", "3.44 Kapitał K dla a = 0,80"),
-		("a = 0,60", "Wzrost gospodarczy", "3.45 Wzrost gospodarczy dla a = 0,60"),
-		("a = 0,80", "Wzrost gospodarczy", "3.46 Wzrost gospodarczy dla a = 0,80"),
+		("K0 = 50", "Kapitał K", "Dynamika zasobu kapitału przy K0 = 50"),
+		("K0 = 200", "Kapitał K", "Dynamika zasobu kapitału przy K0 = 200"),
+		("K0 = 50", "Inwestycje I", "Dynamika inwestycji przy K0 = 50"),
+		("K0 = 200", "Inwestycje I", "Dynamika inwestycji przy K0 = 200"),
+		("K0 = 50", "KLR", "Techniczne uzbrojenie pracy KLR przy K0 = 50"),
+		("K0 = 200", "KLR", "Techniczne uzbrojenie pracy KLR przy K0 = 200"),
+		("K0 = 50", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy K0 = 50"),
+		("K0 = 200", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy K0 = 200"),
+		("K0 = 50", "Produkcja q", "Dynamika produkcji przy K0 = 50"),
+		("K0 = 200", "Produkcja q", "Dynamika produkcji przy K0 = 200"),
+		("K0 = 50", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy K0 = 50"),
+		("K0 = 200", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy K0 = 200"),
+		("alk0 = 5", "Kapitał K", "Dynamika zasobu kapitału przy alk0 = 5"),
+		("alk0 = 20", "Kapitał K", "Dynamika zasobu kapitału przy alk0 = 20"),
+		("alk0 = 5", "KLR", "Techniczne uzbrojenie pracy KLR przy alk0 = 5"),
+		("alk0 = 20", "KLR", "Techniczne uzbrojenie pracy KLR przy alk0 = 20"),
+		("alk0 = 5", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 5"),
+		("alk0 = 20", "alk", "Dynamika średniego okresu użytkowania kapitału alk przy alk0 = 20"),
+		("alk0 = 5", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy alk0 = 5"),
+		("alk0 = 20", "Stopa wzrostu produkcji", "Stopa wzrostu produkcji przy alk0 = 20"),
+		("a = 0,60", "Inwestycje I", "Inwestycje faktyczne dla a = 0,60"),
+		("a = 0,80", "Inwestycje I", "Inwestycje faktyczne dla a = 0,80"),
+		("a = 0,60", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,60"),
+		("a = 0,80", "Inwestycje planowane Ip", "Inwestycje planowane dla a = 0,80"),
+		("a = 0,60", "Kapitał K", "Kapitał K dla a = 0,60"),
+		("a = 0,80", "Kapitał K", "Kapitał K dla a = 0,80"),
+		("a = 0,60", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,60"),
+		("a = 0,80", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,80"),
 	]
-	for chart_index in range(0, len(sensitivity_charts), 2):
-		left, right = st.columns(2)
-		for container, chart_definition in zip((left, right), sensitivity_charts[chart_index:chart_index + 2]):
-			variant_name, column, title = chart_definition
-			with container:
-				st.plotly_chart(
-					sensitivity_chart(sensitivity_data, column, title),
-					use_container_width=True,
-					key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
-				)
+	variant_labels = {
+		"K0 = 50": "K₀ = 50",
+		"K0 = 200": "K₀ = 200",
+		"alk0 = 5": "alk₀ = 5",
+		"alk0 = 20": "alk₀ = 20",
+		"a = 0,60": "a = 0,60",
+		"a = 0,80": "a = 0,80",
+	}
+	for chart_index, (variant_name, column, title) in enumerate(sensitivity_charts):
+		st.subheader(f"Wyniki dla {variant_labels[variant_name]}")
+		st.plotly_chart(
+			sensitivity_chart(sensitivity_data[variant_name], column, title),
+			use_container_width=True,
+			key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
+		)
 
 with tab5:
 	st.markdown("""
