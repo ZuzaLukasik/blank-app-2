@@ -367,7 +367,7 @@ def sensitivity_chart(variant_data, column, title):
 
     fig.update_layout(
     title=dict(
-        text=get_chart_title(column),
+        text=title,
         y=0.85,
         yanchor="top",
         font=dict(color="#1f2937")
