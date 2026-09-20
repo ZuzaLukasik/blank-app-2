@@ -918,11 +918,6 @@ with tab5:
     )
 
     st.latex(
-        r"g_{x,n} = "
-        r"\frac{x_n - x_{n-1}}{x_{n-1}\Delta t}"
-    )
-
-    st.latex(
         r"g_{q,n}^{\mathrm{równanie}} = "
         r"\alpha_n g_{K,n} + \beta_n g_{L,n} + "
         r"KOR_n \frac{rw_n}{KLR_n} "
