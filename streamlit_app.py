@@ -354,13 +354,19 @@ with tab4:
 		"a = 0,60": "a = 0,60",
 		"a = 0,80": "a = 0,80",
 	}
-	for chart_index, (variant_name, column, title) in enumerate(sensitivity_charts):
-		st.subheader(f"Wyniki dla {variant_labels[variant_name]}")
-		st.plotly_chart(
-			sensitivity_chart(sensitivity_data[variant_name], column, title),
-			use_container_width=True,
-			key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
-		)
+	for chart_index in range(0, len(sensitivity_charts), 2):
+		left, right = st.columns(2)
+		for container, chart_definition in zip(
+			(left, right), sensitivity_charts[chart_index:chart_index + 2]
+		):
+			variant_name, column, title = chart_definition
+			with container:
+				st.subheader(f"Wyniki dla {variant_labels[variant_name]}")
+				st.plotly_chart(
+					sensitivity_chart(sensitivity_data[variant_name], column, title),
+					use_container_width=True,
+					key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
+				)
 
 with tab5:
 	st.markdown("""
