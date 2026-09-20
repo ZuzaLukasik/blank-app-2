@@ -123,12 +123,12 @@ def simulate(params):
 		"Okres": times, "Kapitał K": capital, "Praca L": labor, "Populacja": population,
 		"Produkcja q": output, "Popyt planowany Yp": planned_demand, "Popyt Y": demand, "alpha": alpha,
 		"beta": beta, "alk": alk, "KOR": kor, "KLR": klr, "Płaca rw": wage,
-		"KLR ze wzoru": klr_formula, "Różnica KLR": klr_difference,
+		"KLR ze wzoru": klr_formula,
 		"Konsumpcja C": consumption, "Inwestycje I": investment,
 		"Inwestycje planowane Ip": planned_investment_series,
 		"Wydatki G": government,
 		"Eksport X": exports, "Import M": imports, "Zysk pi": profit,
-		"Bezrobocie u": 1 - labor / population, "Luka popytowa": demand - params["Pq"] * output,
+		"Luka popytowa": demand - params["Pq"] * output,
 		"Stopa wzrostu produkcji": production_growth, "Wzrost gospodarczy": growth_identity,
 	})
 
@@ -245,10 +245,25 @@ def scenario_metric(formatter):
 	)
 
 
-def sensitivity_chart(frame, column, title):
-	return px.line(frame, x="Okres", y=column, title=title)
+def sensitivity_chart(variant_data, column, title):
+	frames = []
+	for scenario_name, frame in variant_data.items():
+		part = frame[["Okres", column]].copy()
+		part["Scenariusz"] = scenario_name
+		frames.append(part)
+	chart_data = pd.concat(frames, ignore_index=True)
+	return px.line(chart_data, x="Okres", y=column, color="Scenariusz", title=title)
 
 
+sensitivity_bases = {
+	"Scenariusz A": values,
+	"Scenariusz B": values_b if values_b is not None else {
+		**values, "E": 0.70, "zeta": 1.2, "gamma0": 0.25, "gamma_E": 0.25,
+	},
+	"Scenariusz C": values_c if values_c is not None else {
+		**values, "E": 0.85, "zeta": 1.2, "gamma0": 0.25, "gamma_E": 0.25,
+	},
+}
 sensitivity_data = {}
 for parameter, variants in {
 		"K0": [("K0 = 50", 50.0), ("K0 = 200", 200.0)],
@@ -256,26 +271,35 @@ for parameter, variants in {
 		"a": [("a = 0,60", 0.60), ("a = 0,80", 0.80)],
 	}.items():
 	for variant_name, variant_value in variants:
-		variant_values = dict(values)
-		variant_values[parameter] = variant_value
-		sensitivity_data[variant_name] = simulate(base_params(variant_values))
+			sensitivity_data[variant_name] = {}
+			for scenario_name, scenario_values in sensitivity_bases.items():
+				variant_values = dict(scenario_values)
+				variant_values[parameter] = variant_value
+				sensitivity_data[variant_name][scenario_name] = simulate(base_params(variant_values))
 
 
-metric_cols = st.columns(5)
-metric_cols[0].metric("Produkcja końcowa", scenario_metric(lambda frame: f"{frame['Produkcja q'].iloc[-1]:,.2f}"))
-metric_cols[1].metric("Kapitał końcowy", scenario_metric(lambda frame: f"{frame['Kapitał K'].iloc[-1]:,.2f}"))
-metric_cols[2].metric("α końcowe", scenario_metric(lambda frame: f"{frame['alpha'].iloc[-1]:.3f}"))
-metric_cols[3].metric("Suma zysku", scenario_metric(lambda frame: f"{frame['Zysk pi'].sum():,.2f}"))
-metric_cols[4].metric("Bezrobocie", scenario_metric(lambda frame: f"{100 * frame['Bezrobocie u'].iloc[-1]:.2f}%"))
+metric_definitions = [
+	("Produkcja końcowa", lambda frame: f"{frame['Produkcja q'].iloc[-1]:,.2f}"),
+	("Kapitał końcowy", lambda frame: f"{frame['Kapitał K'].iloc[-1]:,.2f}"),
+	("α końcowe", lambda frame: f"{frame['alpha'].iloc[-1]:.3f}"),
+	("Suma zysku", lambda frame: f"{frame['Zysk pi'].sum():,.2f}"),
+]
+metric_cols = st.columns(len(metric_definitions))
+for metric_column, (label, formatter) in zip(metric_cols, metric_definitions):
+	with metric_column:
+		st.markdown(f"**{label}**")
+		for scenario_name, frame in scenario_data.items():
+			st.write(f"{scenario_name}: {formatter(frame)}")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-	"Przebieg modelu", "Zysk i R", "Równowaga popytu", "Analiza wrażliwości", "Założenia", "Wzory",
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+	"Przebieg modelu", "Równowaga popytu", "Analiza wrażliwości", "Założenia", "Wzory",
 ])
 with tab1:
 	st.subheader("Osobne wykresy wszystkich zmiennych")
-	st.plotly_chart(scenario_chart("alk", "Średni okres użytkowania kapitału alk"), use_container_width=True, key="alk_chart")
-	st.plotly_chart(scenario_chart("KLR", "Relacja kapitał-praca KLR"), use_container_width=True, key="klr_chart")
-	plot_columns = [column for column in data.columns if column != "Okres"]
+	plot_columns = [
+		column for column in data.columns
+		if column not in {"Okres", "Różnica KLR", "Bezrobocie u"}
+	]
 	for index in range(0, len(plot_columns), 2):
 		left, right = st.columns(2)
 		with left:
@@ -288,21 +312,6 @@ with tab1:
 	st.dataframe(data.round(4), use_container_width=True, hide_index=True)
 
 with tab2:
-	st.plotly_chart(scenario_chart("Zysk pi", "Zysk w czasie"), use_container_width=True, key="profit_chart")
-	st.markdown("#### Czy `R` powinno zmienić funkcję celu?")
-	st.write("Nie. Dla ustalonego R funkcja celu pozostaje: π = q·Pq − K·Pk·(1/alk + R) − L·rw·Pq. R staje się zmienną decyzyjną dopiero wtedy, gdy chcemy dobrać jego wartość maksymalizującą zysk.")
-	if st.button("Znajdź R maksymalizujące sumę zysku"):
-		candidates = np.linspace(-0.05, 0.50, 111)
-		scores = []
-		for candidate in candidates:
-			candidate_values = dict(values)
-			candidate_values["R"] = float(candidate)
-			scores.append(simulate(base_params(candidate_values))["Zysk pi"].sum())
-		best = int(np.argmax(scores))
-		st.success(f"Najlepsze R w siatce: {candidates[best]:.3f}; suma zysku: {scores[best]:,.2f}")
-		st.plotly_chart(px.line(x=candidates, y=scores, labels={"x": "R", "y": "Suma zysku"}, title="Funkcja celu względem R"), use_container_width=True, key="r_optimization_chart")
-
-with tab3:
 	accounting_gap = (data["Produkcja q"] * values["Pq"] - data["Popyt Y"]).abs().max()
 	if accounting_gap < 1e-10:
 		st.success("Równowaga rynkowa spełniona: produkcja = popyt w każdym okresie.")
@@ -312,7 +321,7 @@ with tab3:
 	st.plotly_chart(scenario_chart("Inwestycje I", "Inwestycje I"), use_container_width=True, key="investment_chart")
 	st.plotly_chart(scenario_chart("Wzrost gospodarczy", "Wzrost gospodarczy z równania"), use_container_width=True, key="output_growth_chart")
 
-with tab4:
+with tab3:
 	st.subheader("Wpływ wybranych parametrów na dynamikę modelu")
 	st.caption("Każdy wariant zmienia wyłącznie parametr wskazany w tytule; pozostałe parametry pozostają takie jak w scenariuszu A.")
 
@@ -368,7 +377,7 @@ with tab4:
 					key=f"sensitivity_chart_{chart_index}_{column}_{variant_name}",
 				)
 
-with tab5:
+with tab4:
 	st.markdown("""
 ### Założenia modelu
 
@@ -390,7 +399,7 @@ with tab5:
 - Zabezpieczenia `max(..., 10⁻¹²)` i `clip(...)` chronią przed dzieleniem przez zero oraz wartościami spoza stabilnego zakresu.
 """)
 
-with tab6:
+with tab5:
 	st.subheader("Wzory używane w modelu")
 	st.caption("Równania są zapisywane dla okresu n. Zmienne z indeksem n−1 pochodzą z poprzedniego kroku symulacji.")
 
@@ -409,10 +418,6 @@ with tab6:
 	st.latex(r"KLR_n = \frac{K_n}{L_n} = \frac{\alpha_n rw_n}{\left(\frac{1}{alk_n} + R\right)\beta_n}")
 	st.latex(r"KLR_n^{\mathrm{wzór}} = \frac{\alpha_n rw_n}{\max\left[\left(\frac{1}{alk_n} + R\right)\beta_n,\ 10^{-12}\right]}")
 	st.latex(r"\Delta KLR_n = KLR_n - KLR_n^{\mathrm{wzór}}")
-	st.markdown("#### Kontrola różnicy KLR")
-	st.write("`Różnica KLR` porównuje bezpośrednie KLR = K/L z KLR obliczonym ze wzoru z udziałem α, płacy, β, alk i R. Wartość bliska zeru oznacza zgodność obu sposobów obliczenia.")
-	st.write(scenario_metric(lambda frame: f"maks. |Różnica KLR| = {frame['Różnica KLR'].abs().max():.3e}"))
-	st.plotly_chart(scenario_chart("Różnica KLR", "Różnica między bezpośrednim KLR a KLR ze wzoru"), use_container_width=True, key="klr_difference_chart")
 	st.latex(r"\alpha_n \text{ jest wyznaczane numerycznie z } \alpha_n = KOR_n\left(\frac{1}{alk_n} + R\right),\quad 0.02 \leq \alpha_n \leq 0.98")
 
 	st.markdown("#### Popyt, handel i równowaga rynkowa")
