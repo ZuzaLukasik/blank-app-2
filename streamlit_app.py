@@ -267,11 +267,11 @@ def scenario_chart(column, title=None):
     )
 
     fig.update_layout(
-        font=dict(color="#1f2937"),
-        title_font=dict(color="#1f2937"),
-        legend_font=dict(color="#1f2937")
-    )
-
+    font=dict(color="#1f2937"),
+    title_font=dict(color="#1f2937"),
+    legend_font=dict(color="#1f2937"),
+    legend_title_font=dict(color="#1f2937")
+)
     fig.update_xaxes(
         title_font=dict(color="#1f2937"),
         tickfont=dict(color="#1f2937")
@@ -281,6 +281,8 @@ def scenario_chart(column, title=None):
         title_font=dict(color="#1f2937"),
         tickfont=dict(color="#1f2937")
     )
+
+	
 
     return fig
 
@@ -310,10 +312,11 @@ def sensitivity_chart(variant_data, column, title):
     )
 
     fig.update_layout(
-        font=dict(color="#1f2937"),
-        title_font=dict(color="#1f2937"),
-        legend_font=dict(color="#1f2937")
-    )
+    font=dict(color="#1f2937"),
+    title_font=dict(color="#1f2937"),
+    legend_font=dict(color="#1f2937"),
+    legend_title_font=dict(color="#1f2937")
+)
 
     fig.update_xaxes(
         title_font=dict(color="#1f2937"),
