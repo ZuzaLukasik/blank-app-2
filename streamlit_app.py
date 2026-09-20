@@ -7,10 +7,6 @@ import streamlit as st
 st.set_page_config(page_title="Model wzrostu i zysku", page_icon="📈", layout="wide")
 px.defaults.template = "plotly_white"
 
-px.defaults.font = dict(
-    color="#1f2937",
-    family="Arial"
-)
 
 st.markdown("""
 <style>
@@ -254,13 +250,39 @@ data = scenario_data["Scenariusz A"]
 
 
 def scenario_chart(column, title=None):
-	frames = []
-	for scenario_name, frame in scenario_data.items():
-		part = frame[["Okres", column]].copy()
-		part["Scenariusz"] = scenario_name
-		frames.append(part)
-	chart_data = pd.concat(frames, ignore_index=True)
-	return px.line(chart_data, x="Okres", y=column, color="Scenariusz", title=title or column)
+    frames = []
+    for scenario_name, frame in scenario_data.items():
+        part = frame[["Okres", column]].copy()
+        part["Scenariusz"] = scenario_name
+        frames.append(part)
+
+    chart_data = pd.concat(frames, ignore_index=True)
+
+    fig = px.line(
+        chart_data,
+        x="Okres",
+        y=column,
+        color="Scenariusz",
+        title=title or column
+    )
+
+    fig.update_layout(
+        font=dict(color="#1f2937"),
+        title_font=dict(color="#1f2937"),
+        legend_font=dict(color="#1f2937")
+    )
+
+    fig.update_xaxes(
+        title_font=dict(color="#1f2937"),
+        tickfont=dict(color="#1f2937")
+    )
+
+    fig.update_yaxes(
+        title_font=dict(color="#1f2937"),
+        tickfont=dict(color="#1f2937")
+    )
+
+    return fig
 
 
 def scenario_metric(formatter):
