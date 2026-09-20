@@ -425,7 +425,10 @@ with tab2:
 
 with tab3:
     st.subheader("Wpływ wybranych parametrów na dynamikę modelu")
-    st.caption("Każdy wariant zmienia wyłącznie parametr wskazany w tytule; pozostałe parametry pozostają takie jak w scenariuszu A.")
+    st.caption(
+        "Każdy wariant zmienia wyłącznie parametr wskazany w tytule; "
+        "pozostałe parametry pozostają takie jak w scenariuszu A."
+    )
 
     sensitivity_charts = [
         ("K0 = 50", "Kapitał K", "Dynamika zasobu kapitału dla K0 = 50"),
@@ -457,11 +460,15 @@ with tab3:
         ("a = 0,60", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,60"),
         ("a = 0,80", "Wzrost gospodarczy", "Wzrost gospodarczy dla a = 0,80"),
     ]
-	group_titles = {
-		0: "Wyniki dla K₀ = 50 i K₀ = 200",
-		12: "Wyniki dla alk₀ = 5 i alk₀ = 20",
-		20: "Wyniki dla a = 0,60 i a = 0,80",
-	}
+
+    group_titles = {
+        "K0 = 50": "Zmiana początkowego zasobu kapitału: K0 = 50",
+        "K0 = 200": "Zmiana początkowego zasobu kapitału: K0 = 200",
+        "alk0 = 5": "Zmiana początkowego średniego okresu użytkowania kapitału: alk0 = 5",
+        "alk0 = 20": "Zmiana początkowego średniego okresu użytkowania kapitału: alk0 = 20",
+        "a = 0,60": "Zmiana skłonności do konsumpcji: a = 0,60",
+        "a = 0,80": "Zmiana skłonności do konsumpcji: a = 0,80",
+    }
 	for chart_index in range(0, len(sensitivity_charts), 2):
 		if chart_index in group_titles:
 			st.subheader(group_titles[chart_index])
